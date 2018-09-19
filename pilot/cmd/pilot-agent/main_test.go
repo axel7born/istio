@@ -94,6 +94,7 @@ func TestPilotDefaultDomainKubernetes(t *testing.T) {
 func TestPilotDefaultDomainConsul(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	role.Domain = ""
+	role.IdentityDomain = ""
 	registry = serviceregistry.ConsulRegistry
 
 	domain := getDomain(role.Domain)
