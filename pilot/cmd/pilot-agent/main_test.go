@@ -145,5 +145,3 @@ func TestPilotSanIfAuthenticationMutualStdDomainConsul(t *testing.T) {
 	pilotSAN:= getPilotSAN(role.Domain,"anything")
 
 	g.Expect(pilotSAN).To(gomega.Equal([]string{"spiffe:///ns/anything/sa/istio-pilot-service-account"} ))
-}
-
