@@ -298,6 +298,7 @@ func getPilotSAN(domain string, ns string) []string {
 
 			}
 		}
+
 		pilotSAN = envoy.GetPilotSAN(pilotDomain, ns)
 	}
 
