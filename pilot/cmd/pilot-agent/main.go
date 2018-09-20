@@ -290,6 +290,17 @@ func getPilotSAN(domain string, ns string) []string {
 		}
 		pilotSAN = envoy.GetPilotSAN(pilotDomain, ns)
 	}
+
+	if len(domain) == 0 {
+		if registry == serviceregistry.KubernetesRegistry {
+			domain = os.Getenv("POD_NAMESPACE") + ".svc.cluster.local"
+		} else if registry == serviceregistry.ConsulRegistry {
+			domain = "service.consul"
+		} else {
+			domain = ""
+		}
+	}
+
 	return pilotSAN
 }
 
