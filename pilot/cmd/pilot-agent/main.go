@@ -118,16 +118,6 @@ var (
 				}
 			}
 
-			if len(role.Domain) == 0 {
-				if registry == serviceregistry.KubernetesRegistry {
-					role.Domain = os.Getenv("POD_NAMESPACE") + ".svc.cluster.local"
-				} else if registry == serviceregistry.ConsulRegistry {
-					role.Domain = "service.consul"
-				} else {
-					role.Domain = ""
-				}
-			}
-
 			log.Infof("Proxy role: %#v", role)
 
 			proxyConfig := model.DefaultProxyConfig()
