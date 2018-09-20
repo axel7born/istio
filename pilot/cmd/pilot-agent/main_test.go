@@ -15,7 +15,6 @@ func TestNoPilotSanIfAuthenticationNone(t *testing.T) {
 	controlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_NONE.String()
 
 	pilotSAN := getPilotSAN(role.Domain, "anything")
-
 	g.Expect(pilotSAN).To(gomega.BeNil())
 }
 
@@ -146,3 +145,4 @@ func TestPilotSanIfAuthenticationMutualStdDomainConsul(t *testing.T) {
 
 	g.Expect(pilotSAN).To(gomega.Equal([]string{"spiffe:///ns/anything/sa/istio-pilot-service-account"} ))
 }
+
