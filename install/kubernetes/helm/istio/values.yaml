@@ -187,7 +187,7 @@ global:
   # propagated, not recommended for tests.
   controlPlaneSecurityEnabled: false
 
-  # SDS enabled. IF set to true, mTLS certificates for the sidecars will be 
+  # SDS enabled. IF set to true, mTLS certificates for the sidecars will be
   # distributed through the SecretDiscoveryService instead of using K8S secrets to mount the certificates.
   sdsEnabled: false
 
