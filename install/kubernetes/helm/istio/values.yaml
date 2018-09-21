@@ -192,6 +192,7 @@ global:
   sdsEnabled: false
 
   # indicate the domain used in SPIFFE identity URL
+
   # The default depends on the environment.
   #   kubernetes: cluster.local
   #   else:  default dns domain

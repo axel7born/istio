@@ -159,8 +159,6 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 
 
 	if pilotSAN == nil {
-		//panic("pilotSAN should not be nil")
-
 		opts["pilot_SAN"] = pilotSAN
 	}
 
