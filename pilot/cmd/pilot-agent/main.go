@@ -20,6 +20,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io/ioutil"
+	"istio.io/istio/pkg/spiffe"
 	"net"
 	"os"
 	"strconv"
@@ -234,6 +235,7 @@ var (
 				opts := make(map[string]string)
 				opts["PodName"] = os.Getenv("POD_NAME")
 				opts["PodNamespace"] = os.Getenv("POD_NAMESPACE")
+				opts["MixerSubjectAltName"] = envoy.GetMixerSAN(opts["PodNamespace"])
 
 				// protobuf encoding of IP_ADDRESS type
 				opts["PodIP"] = base64.StdEncoding.EncodeToString(net.ParseIP(os.Getenv("INSTANCE_IP")))
@@ -310,8 +312,10 @@ func getPilotSAN(domain string, ns string) []string {
 				pilotTrustDomain = domain
 			}
 		}
-		pilotSAN = envoy.GetPilotSAN(pilotTrustDomain, ns)
+		spiffe.SetTrustDomain(pilotTrustDomain)
+		pilotSAN = append(pilotSAN, envoy.GetPilotSAN(ns))
 	}
+	log.Infof("PilotSAN %#v", pilotSAN)
 	return pilotSAN
 }
 
