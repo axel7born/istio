@@ -27,7 +27,7 @@ func TestPilotSanIfAuthenticationMutualDomainEmptyKubernetes(t *testing.T) {
 
 	pilotSAN:= getPilotSAN(role.Domain,"anything")
 
-	g.Expect(pilotSAN).To(gomega.Equal([]string{"spiffe://cluster.local/ns/anything/sa/istio-pilot-service-account"} ))
+	g.Expect(pilotSAN).To(gomega.Equal("cluster.local" ))
 }
 
 func TestPilotSanIfAuthenticationMutualDomainNotEmptyKubernetes(t *testing.T) {
@@ -39,7 +39,7 @@ func TestPilotSanIfAuthenticationMutualDomainNotEmptyKubernetes(t *testing.T) {
 
 	pilotSAN:= getPilotSAN(role.Domain,"anything")
 
-	g.Expect(pilotSAN).To(gomega.Equal([]string{"spiffe://my.domain/ns/anything/sa/istio-pilot-service-account"} ))
+	g.Expect(pilotSAN).To(gomega.Equal("my.domain"))
 }
 
 //TODO Is this really correct?
@@ -52,7 +52,7 @@ func TestPilotSanIfAuthenticationMutualDomainEmptyConsul(t *testing.T) {
 
 	pilotSAN:= getPilotSAN(role.Domain,"anything")
 
-	g.Expect(pilotSAN).To(gomega.Equal([]string{"spiffe:///ns/anything/sa/istio-pilot-service-account"} ))
+	g.Expect(pilotSAN).To(gomega.Equal("" ))
 }
 
 func TestPilotSanIfAuthenticationMutualIdentityDomain(t *testing.T) {
@@ -64,7 +64,7 @@ func TestPilotSanIfAuthenticationMutualIdentityDomain(t *testing.T) {
 
 	pilotSAN:= getPilotSAN(role.Domain,"anything")
 
-	g.Expect(pilotSAN).To(gomega.Equal([]string{"spiffe://secured/ns/anything/sa/istio-pilot-service-account"} ))
+	g.Expect(pilotSAN).To(gomega.Equal("secured" ))
 }
 
 func TestPilotSanIfAuthenticationMutualIdentityDomainAndDomain(t *testing.T) {
@@ -76,7 +76,7 @@ func TestPilotSanIfAuthenticationMutualIdentityDomainAndDomain(t *testing.T) {
 
 	pilotSAN:= getPilotSAN(role.Domain,"anything")
 
-	g.Expect(pilotSAN).To(gomega.Equal([]string{"spiffe://secured/ns/anything/sa/istio-pilot-service-account"} ))
+	g.Expect(pilotSAN).To(gomega.Equal("secured" ))
 }
 
 func TestPilotDefaultDomainKubernetes(t *testing.T) {
