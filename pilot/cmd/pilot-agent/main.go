@@ -275,26 +275,36 @@ var (
 
 func getPilotSAN(domain string, ns string) []string {
 	var pilotSAN []string
-	if controlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS.String() {
-		pilotDomain := role.IdentityDomain
-		if len(pilotDomain) == 0 {
-
-			if registry == serviceregistry.KubernetesRegistry &&
-				(domain == os.Getenv("POD_NAMESPACE")+".svc.cluster.local" || domain == "") {
-				pilotDomain = "cluster.local"
-			} else if registry == serviceregistry.ConsulRegistry &&
-				(domain == "service.consul" || domain == "") {
-				pilotDomain = ""
-			} else {
-				pilotDomain = domain
-
-			}
-		}
-		spiffe.SetIdentityDomain(pilotDomain)
+	pilotDomain := getPilotIdentityDomain(domain)
+	if pilotDomain != ""{
+		spiffe.SetIdentityDomain(pilotDomain, domain, registry == serviceregistry.KubernetesRegistry)
 		pilotSAN = append(pilotSAN, envoy.GetPilotSAN(ns))
+
 	}
 	log.Infof("PilotSAN %#v", pilotSAN)
 	return pilotSAN
+}
+
+func getPilotIdentityDomain(domain string) string {
+	if controlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS.String() {
+		pilotIdentityDomain := role.IdentityDomain
+		if len(pilotIdentityDomain) == 0 {
+
+			if registry == serviceregistry.KubernetesRegistry &&
+				(domain == os.Getenv("POD_NAMESPACE")+".svc.cluster.local" || domain == "") {
+				pilotIdentityDomain = "cluster.local"
+			} else if registry == serviceregistry.ConsulRegistry &&
+				(domain == "service.consul" || domain == "") {
+				pilotIdentityDomain = ""
+			} else {
+				pilotIdentityDomain = domain
+
+			}
+		}
+		return pilotIdentityDomain
+	} else {
+		return ""
+	}
 }
 
 func getDomain(domain string) string {
