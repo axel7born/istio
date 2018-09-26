@@ -166,7 +166,6 @@ var (
 						}
 					}
 				}
-
 			}
 			pilotSAN = getPilotSAN(role.Domain, ns)
 			role.Domain = getDomain(role.Domain)
@@ -280,9 +279,11 @@ func getPilotSAN(domain string, ns string) []string {
 	var pilotSAN []string
 	pilotDomain := getPilotIdentityDomain(domain)
 	if pilotDomain != "" {
-		spiffe.SetIdentityDomain(pilotDomain, domain, registry == serviceregistry.KubernetesRegistry)
+		role.IdentityDomain = spiffe.SetIdentityDomain(pilotDomain, domain, registry == serviceregistry.KubernetesRegistry)
 		pilotSAN = append(pilotSAN, envoy.GetPilotSAN(ns))
 
+	} else {
+		role.IdentityDomain = ""
 	}
 	log.Infof("PilotSAN %#v", pilotSAN)
 	return pilotSAN
