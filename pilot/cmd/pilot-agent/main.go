@@ -137,8 +137,7 @@ var (
 			proxyConfig.ProxyAdminPort = int32(proxyAdminPort)
 			proxyConfig.Concurrency = int32(concurrency)
 
-
-			pilotSAN := make([]string, 0)
+			var pilotSAN []string
 			var ns string
 
 			switch controlPlaneAuthPolicy {
@@ -167,6 +166,7 @@ var (
 						}
 					}
 				}
+
 			}
 			pilotSAN = getPilotSAN(role.Domain, ns)
 			role.Domain = getDomain(role.Domain)
@@ -260,7 +260,7 @@ var (
 				})
 				go statusServer.Run(ctx)
 			}
-			log.Infof("PilotSAN %#v", pilotSAN )
+			log.Infof("PilotSAN %#v", pilotSAN)
 			envoyProxy := envoy.NewProxy(proxyConfig, role.ServiceNode(), proxyLogLevel, pilotSAN)
 			agent := proxy.NewAgent(envoyProxy, proxy.DefaultRetry)
 			watcher := envoy.NewWatcher(proxyConfig, role, certs, pilotSAN, agent.ConfigCh())
@@ -279,7 +279,7 @@ var (
 func getPilotSAN(domain string, ns string) []string {
 	var pilotSAN []string
 	pilotDomain := getPilotIdentityDomain(domain)
-	if pilotDomain != ""{
+	if pilotDomain != "" {
 		spiffe.SetIdentityDomain(pilotDomain, domain, registry == serviceregistry.KubernetesRegistry)
 		pilotSAN = append(pilotSAN, envoy.GetPilotSAN(ns))
 
