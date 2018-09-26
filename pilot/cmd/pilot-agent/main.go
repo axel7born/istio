@@ -137,8 +137,10 @@ var (
 			proxyConfig.ProxyAdminPort = int32(proxyAdminPort)
 			proxyConfig.Concurrency = int32(concurrency)
 
-			var pilotSAN []string
-			ns := ""
+
+			pilotSAN := make([]string, 0)
+			var ns string
+
 			switch controlPlaneAuthPolicy {
 			case meshconfig.AuthenticationPolicy_NONE.String():
 				proxyConfig.ControlPlaneAuthPolicy = meshconfig.AuthenticationPolicy_NONE
