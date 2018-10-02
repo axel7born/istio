@@ -16,7 +16,6 @@ package kube
 
 import (
 	"fmt"
-	"os"
 	"istio.io/istio/pkg/spiffe"
 	"sort"
 	"strconv"

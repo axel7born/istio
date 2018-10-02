@@ -195,7 +195,7 @@ global:
   # The default depends on the environment.
   #   kubernetes: cluster.local
   #   else:  default dns domain
-  identityDomain:
+  identityDomain: cluster.local
 
   # disablePolicyChecks disables mixer policy checks.
   # Will set the value with same name in istio config map - pilot needs to be restarted to take effect.
