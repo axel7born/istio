@@ -257,7 +257,7 @@ var (
 				})
 				go statusServer.Run(ctx)
 			}
-
+			log.Infof("PilotSAN %#v", pilotSAN )
 			envoyProxy := envoy.NewProxy(proxyConfig, role.ServiceNode(), proxyLogLevel, pilotSAN)
 			agent := proxy.NewAgent(envoyProxy, proxy.DefaultRetry)
 			watcher := envoy.NewWatcher(proxyConfig, role, certs, pilotSAN, agent.ConfigCh())
