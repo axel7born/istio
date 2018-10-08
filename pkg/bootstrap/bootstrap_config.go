@@ -121,7 +121,7 @@ func StoreHostPort(host, port, field string, opts map[string]interface{}) {
 
 // WriteBootstrap generates an envoy config based on config and epoch, and returns the filename.
 // TODO: in v2 some of the LDS ports (port, http_port) should be configured in the bootstrap.
-func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilotSAN []string, opts map[string]interface{}) (string, error) {
+func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilotSAN string, opts map[string]interface{}) (string, error) {
 	if opts == nil {
 		opts = map[string]interface{}{}
 	}
@@ -157,10 +157,7 @@ func WriteBootstrap(config *meshconfig.ProxyConfig, node string, epoch int, pilo
 	opts["config"] = config
 
 
-
-	if pilotSAN == nil {
-		opts["pilot_SAN"] = pilotSAN
-	}
+	opts["pilot_SAN"] = pilotSAN
 
 	// Simplify the template
 	opts["connect_timeout"] = fmt.Sprintf("{\"seconds\": %d, \"nanos\": %d}", config.ConnectTimeout.Seconds, config.ConnectTimeout.Nanos)

@@ -53,7 +53,7 @@ type watcher struct {
 	role     model.Proxy
 	config   meshconfig.ProxyConfig
 	certs    []CertSource
-	pilotSAN []string
+	pilotSAN string
 	updates  chan<- interface{}
 }
 
@@ -63,7 +63,7 @@ func NewWatcher(
 	config meshconfig.ProxyConfig,
 	role model.Proxy,
 	certs []CertSource,
-	pilotSAN []string,
+	pilotSAN string,
 	updates chan<- interface{}) Watcher {
 	return &watcher{
 		role:     role,

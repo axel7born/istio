@@ -23,44 +23,54 @@ const (
 	Scheme = "spiffe"
 )
 
-var globalIdentityDomain = ""
+var globalDomain Domain
 
-func SetIdentityDomain(identityDomain string, domain string, isKubernetes bool) string {
-	globalIdentityDomain = determineIdentityDomain(identityDomain, domain, isKubernetes)
-	return globalIdentityDomain
+type Domain struct {
+	Suffix   string
+	Identity string
 }
 
-func determineIdentityDomain(identityDomain string, domain string, isKubernetes bool) string {
+var (
+	KubernetesDefaultDomain = Domain{orDefault(os.Getenv("POD_NAMESPACE"), "default") + ".svc.cluster.local", "cluster.local"}
+	ConsulDefaultDomain     = Domain{"service.consul", ""}
+	DefaultDomain           = Domain{"", ""}
+)
 
-	if len(identityDomain) != 0 {
-		return identityDomain
-	}
-	envIdentityDomain := os.Getenv("ISTIO_SA_DOMAIN_CANONICAL")
-	if len(envIdentityDomain) > 0 {
-		return envIdentityDomain
-	}
-	if len(domain) != 0 {
-		return domain
-	}
-	if isKubernetes {
-		return "cluster.local"
+func SetDomain(domain Domain, dflt Domain, mutualTLS bool) Domain {
+	globalDomain = determineDomain(domain, dflt, mutualTLS)
+	return globalDomain
+}
+
+func determineDomain(domain Domain, dflt Domain, mutualTLS bool) Domain {
+	if mutualTLS {
+		domain.Identity = orDefault(domain.Identity, domain.Suffix)
+		domain.Identity = orDefault(domain.Identity, os.Getenv("ISTIO_SA_DOMAIN_CANONICAL"))
+		domain.Identity = orDefault(domain.Identity, dflt.Identity)
 	} else {
-		return domain
+		domain.Identity = ""
 	}
+	domain.Suffix = orDefault(domain.Suffix, dflt.Suffix)
+
+	return domain
+}
+
+func orDefault(value string, dflt string) string {
+	if len(value) == 0 {
+		return dflt
+	}
+	return value
 }
 
 // GenSpiffeURI returns the formatted uri(SPIFFEE format for now) for the certificate.
 func GenSpiffeURI(ns, serviceAccount string) (string, error) {
-	if globalIdentityDomain == "" {
-		return "", fmt.Errorf(
-			"identity domain can't be empty. Please use SetIdentityDomain to configure the identity domain")
-
+	if globalDomain.Identity == "" {
+		return "", nil
 	}
 	if ns == "" || serviceAccount == "" {
 		return "", fmt.Errorf(
 			"namespace or service account can't be empty ns=%v serviceAccount=%v", ns, serviceAccount)
 	}
-	return fmt.Sprintf(Scheme+"://%s/ns/%s/sa/%s", globalIdentityDomain, ns, serviceAccount), nil
+	return fmt.Sprintf(Scheme+"://%s/ns/%s/sa/%s", globalDomain.Identity, ns, serviceAccount), nil
 }
 
 func MustGenSpiffeURI(ns, serviceAccount string) string {

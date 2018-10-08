@@ -65,47 +65,94 @@ func TestGenSpiffeURI(t *testing.T) {
 }
 
 func TestMustGenSpiffeURI(t *testing.T) {
-	defer func() {
-		if r := recover(); r == nil {
-			t.Errorf("expect that MustGenSpiffeURI panics in case of empty namespace")
-		}
-	}()
+	WithIdentityDomain("cluster.local", func() {
+		defer func() {
+			if r := recover(); r == nil {
+				t.Errorf("expect that MustGenSpiffeURI panics in case of empty namespace")
+			}
+		}()
 
-	MustGenSpiffeURI("", "")
+		MustGenSpiffeURI("", "")
+	})
 }
 
-func TestPilotSanForNoIdentityDomainAndNoDomain(t *testing.T) {
+func TestMustGenSpiffeURIWitoutIdentityDomain(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-
-	pilotSAN := SetIdentityDomain("", "", false)
-
-	g.Expect(pilotSAN).To(gomega.Equal(""))
+	g.Expect(MustGenSpiffeURI("namespace", "account")).To(gomega.BeEmpty())
 }
 
-func TestPilotSanForNoIdentityDomainAndNoDomainKubernetes(t *testing.T) {
+func TestDetermineDomainIfAuthenticationNone(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	pilotSAN := SetIdentityDomain("", "", true)
-
-	g.Expect(pilotSAN).To(gomega.Equal("cluster.local"))
+	domain := determineDomain(Domain{"", ""}, DefaultDomain, false)
+	g.Expect(domain.Identity).To(gomega.Equal(""))
 }
 
-func TestPilotSanForNoIdentityDomainButDomainKubernetes(t *testing.T) {
+func TestDetermineDomainKubernetes(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	pilotSAN := SetIdentityDomain("", "my.domain", true)
-
-	g.Expect(pilotSAN).To(gomega.Equal("my.domain"))
+	domain := determineDomain(Domain{"", ""}, KubernetesDefaultDomain, true)
+	g.Expect(domain.Identity).To(gomega.Equal("cluster.local"))
 }
 
-func TestPilotSanForIdentityDomainButNoDomainKubernetes(t *testing.T) {
+func TestDetermineDomainIfAuthenticationMutualDomainNotEmptyKubernetes(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	pilotSAN := SetIdentityDomain("secured", "", true)
-
-	g.Expect(pilotSAN).To(gomega.Equal("secured"))
+	domain := determineDomain(Domain{"my.domain", ""}, KubernetesDefaultDomain, true)
+	g.Expect(domain.Identity).To(gomega.Equal("my.domain"))
 }
 
-func TestPilotSanForIdentityDomainAndDomainKubernetes(t *testing.T) {
+func TestDetermineDomainIfAuthenticationMutualDomainEmptyConsul(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	pilotSAN := SetIdentityDomain("secured", "my.domain", true)
+	domain := determineDomain(Domain{"my.domain", ""}, ConsulDefaultDomain, true)
+	g.Expect(domain.Identity).To(gomega.Equal("my.domain"))
+}
 
-	g.Expect(pilotSAN).To(gomega.Equal("secured"))
+func TestDetermineDomainIfAuthenticationMutualIdentityDomain(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	domain := determineDomain(Domain{"", ""}, ConsulDefaultDomain, true)
+	g.Expect(domain.Identity).To(gomega.Equal(""))
+}
+
+func TestDetermineDomainIfAuthenticationMutualIdentityDomainAndDomain(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	domain := determineDomain(Domain{"my.domain", ""}, ConsulDefaultDomain, true)
+	g.Expect(domain.Identity).To(gomega.Equal("my.domain"))
+}
+
+func TestDetermineDomainIfKubernetes(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	domain := determineDomain(Domain{"cluster.local", ""}, KubernetesDefaultDomain, true)
+	g.Expect(domain.Suffix).To(gomega.Equal("cluster.local"))
+	g.Expect(domain.Identity).To(gomega.Equal("cluster.local"))
+}
+
+func TestDetermineDomainWithEmptyDomain(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	domain := determineDomain(Domain{"", ""}, KubernetesDefaultDomain, true)
+	g.Expect(domain.Identity).To(gomega.Equal("cluster.local"))
+	g.Expect(domain.Suffix).To(gomega.Equal(KubernetesDefaultDomain.Suffix))
+
+}
+
+func TestDetermineDomainMututalTLS(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	domain := determineDomain(Domain{"", "secured"}, KubernetesDefaultDomain, true)
+	g.Expect(domain.Suffix).To(gomega.Equal(KubernetesDefaultDomain.Suffix))
+	g.Expect(domain.Identity).To(gomega.Equal("secured"))
+}
+
+func TestDetermineDomainConsul(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	domain := determineDomain(Domain{"", ""}, ConsulDefaultDomain, true)
+	g.Expect(domain.Suffix).To(gomega.Equal("service.consul"))
+}
+
+func TestDetermineDomainMututalTLSDefault(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	domain := determineDomain(Domain{"my.Domain", ""}, KubernetesDefaultDomain, true)
+	g.Expect(domain.Suffix).To(gomega.Equal("my.Domain"))
+}
+
+func TestIdentityDomainNoMututalTLS(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	domain := determineDomain(Domain{"", "secured"}, KubernetesDefaultDomain, false)
+	g.Expect(domain.Suffix).To(gomega.Equal(KubernetesDefaultDomain.Suffix))
 }

@@ -118,6 +118,9 @@ var (
 					role.ID = role.IPAddress
 				}
 			}
+			domain := spiffe.SetDomain(spiffe.Domain{role.Domain, role.IdentityDomain}, defaultDomain(), controlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS.String())
+			role.Domain = domain.Suffix
+			role.IdentityDomain = domain.Identity
 
 			log.Infof("Proxy role: %#v", role)
 
@@ -137,7 +140,6 @@ var (
 			proxyConfig.ProxyAdminPort = int32(proxyAdminPort)
 			proxyConfig.Concurrency = int32(concurrency)
 
-			var pilotSAN []string
 			var ns string
 
 			switch controlPlaneAuthPolicy {
@@ -167,8 +169,7 @@ var (
 					}
 				}
 			}
-			pilotSAN = getPilotSAN(role.Domain, ns)
-			role.Domain = getDomain(role.Domain)
+			pilotSAN := envoy.GetPilotSAN(ns)
 
 			// resolve statsd address
 			if proxyConfig.StatsdUdpAddress != "" {
@@ -275,54 +276,16 @@ var (
 	}
 )
 
-func getPilotSAN(domain string, ns string) []string {
-	var pilotSAN []string
-	pilotDomain := getPilotIdentityDomain(domain)
-	if pilotDomain != "" {
-		role.IdentityDomain = spiffe.SetIdentityDomain(pilotDomain, domain, registry == serviceregistry.KubernetesRegistry)
-		pilotSAN = append(pilotSAN, envoy.GetPilotSAN(ns))
-
-	} else {
-		role.IdentityDomain = ""
+func defaultDomain() spiffe.Domain {
+	switch registry {
+	case serviceregistry.KubernetesRegistry:
+		return spiffe.KubernetesDefaultDomain
+	case serviceregistry.ConsulRegistry:
+		return spiffe.ConsulDefaultDomain
+	default:
+		return spiffe.DefaultDomain
 	}
-	log.Infof("PilotSAN %#v", pilotSAN)
-	return pilotSAN
-}
 
-func getPilotIdentityDomain(domain string) string {
-	if controlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_MUTUAL_TLS.String() {
-		pilotIdentityDomain := role.IdentityDomain
-		if len(pilotIdentityDomain) == 0 {
-
-			if registry == serviceregistry.KubernetesRegistry &&
-				(domain == os.Getenv("POD_NAMESPACE")+".svc.cluster.local" || domain == "") {
-				pilotIdentityDomain = "cluster.local"
-			} else if registry == serviceregistry.ConsulRegistry &&
-				(domain == "service.consul" || domain == "") {
-				pilotIdentityDomain = ""
-			} else {
-				pilotIdentityDomain = domain
-
-			}
-		}
-		return pilotIdentityDomain
-	} else {
-		return ""
-	}
-}
-
-func getDomain(domain string) string {
-	if len(domain) == 0 {
-		if registry == serviceregistry.KubernetesRegistry {
-			domain = os.Getenv("POD_NAMESPACE") + ".svc.cluster.local"
-		} else if registry == serviceregistry.ConsulRegistry {
-			domain = "service.consul"
-		} else {
-			domain = ""
-		}
-	}
-	log.Infof("Domain %s", domain)
-	return domain
 }
 
 func parseApplicationPorts() ([]uint16, error) {
