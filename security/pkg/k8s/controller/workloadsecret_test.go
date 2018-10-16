@@ -17,7 +17,6 @@ package controller
 import (
 	"bytes"
 	"fmt"
-	"istio.io/istio/pkg/spiffe"
 	"testing"
 	"time"
 
