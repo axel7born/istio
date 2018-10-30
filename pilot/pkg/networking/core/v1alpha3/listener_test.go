@@ -15,6 +15,8 @@
 package v1alpha3
 
 import (
+	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
+	"istio.io/api/networking/v1alpha3"
 	"testing"
 	"time"
 
@@ -238,4 +240,79 @@ func buildListenerEnv(services []*model.Service) model.Environment {
 	}
 
 	return env
+}
+
+func TestGatewayIstioMutual(t *testing.T) {
+	t.Helper()
+
+	services := []*model.Service{buildService("x.cluster.local", "1.2.3.4", model.ProtocolHTTP, tnow.Add(1*time.Second))}
+
+	serviceDiscovery := new(fakes.ServiceDiscovery)
+	serviceDiscovery.ServicesReturns(services, nil)
+	var portNumber uint32 = 111
+	hostName := "testhost"
+	serviceName := "service-name"
+	gatewayName := "gateway.io"
+
+	configStore := &fakes.IstioConfigStore{GatewaysStub: func(workloadLabels model.LabelsCollection) []model.Config {
+		portName := fmt.Sprintf("tcp-port-%d", portNumber)
+		port := v1alpha3.Port{Number: portNumber, Name: portName, Protocol: "TLS"}
+		hosts := []string{hostName}
+		tls := v1alpha3.Server_TLSOptions{Mode: v1alpha3.Server_TLSOptions_ISTIO_MUTUAL}
+		selector := make(map[string]string)
+		selector["istio"] = "egressgateway"
+		gatewaySpec := v1alpha3.Gateway{Selector: selector, Servers: []*v1alpha3.Server{{Port: &port, Hosts: hosts, Tls: &tls}}}
+
+		config := model.Config{Spec: &gatewaySpec, ConfigMeta: model.ConfigMeta{Labels: map[string]string{"service": "test-service"}}}
+
+		config.Type = "Gateway"
+		config.Name = gatewayName
+
+		return []model.Config{config}
+	}, ListStub: func(typ, namespace string) ([]model.Config, error) {
+		if typ != model.VirtualService.Type {
+			return []model.Config{}, nil
+		}
+		destinationHost := "x.cluster.local"
+		matchGateways := []string{gatewayName}
+		serviceIP := "1.2.3.4"
+		match := v1alpha3.L4MatchAttributes{Gateways: matchGateways, DestinationSubnets: []string{serviceIP}}
+		destination := v1alpha3.Destination{Host: destinationHost, Port: &v1alpha3.PortSelector{Port: &v1alpha3.PortSelector_Number{Number: portNumber}}, Subset: serviceName}
+		route := v1alpha3.TCPRoute{Route: []*v1alpha3.DestinationWeight{{Destination: &destination}}, Match: []*v1alpha3.L4MatchAttributes{&match}}
+		tcpRoutes := []*v1alpha3.TCPRoute{&route}
+		hosts := []string{hostName}
+		gateways := []string{fmt.Sprintf("gateway.io")}
+		virtualServiceSpec := v1alpha3.VirtualService{Tcp: tcpRoutes, Hosts: hosts, Gateways: gateways}
+		config := model.Config{Spec: &virtualServiceSpec}
+		config.Type = "VirtualService"
+		config.Name = "virtual-service-name"
+		return []model.Config{config}, nil
+
+	}}
+
+	mesh := model.DefaultMeshConfig()
+	env := model.Environment{
+		PushContext:      model.NewPushContext(),
+		ServiceDiscovery: serviceDiscovery,
+		ServiceAccounts: &fakes.ServiceAccounts{GetIstioServiceAccountsStub: func(hostname model.Hostname, ports []string) []string {
+			return []string{"spiffe://cluster.local/ns/default/sa/default"}
+		}},
+		IstioConfigStore: configStore,
+		Mesh:             &mesh,
+		MixerSAN:         []string{},
+	}
+
+	configgen := NewConfigGenerator([]plugin.Plugin{&fakePlugin{}})
+
+	env.PushContext.InitContext(&env)
+
+	instances := make([]*model.ServiceInstance, len(services))
+	for i, s := range services {
+		instances[i] = &model.ServiceInstance{
+			Service: s,
+		}
+	}
+	listener, _ := configgen.buildGatewayListeners(&env, &proxy, env.PushContext)
+
+	fmt.Printf("%#v\n", listener[0].FilterChains[0].TlsContext.CommonTlsContext.ValidationContextType.(*auth.CommonTlsContext_ValidationContext).ValidationContext.VerifySubjectAltName)
 }

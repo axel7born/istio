@@ -25,18 +25,21 @@ const (
 	Server_TLSOptions_SIMPLE Server_TLSOptions_TLSmode = 1
 	// Secure connections to the upstream using mutual TLS by presenting
 	// client certificates for authentication.
-	Server_TLSOptions_MUTUAL Server_TLSOptions_TLSmode = 2
+	Server_TLSOptions_MUTUAL       Server_TLSOptions_TLSmode = 2
+	Server_TLSOptions_ISTIO_MUTUAL Server_TLSOptions_TLSmode = 3
 )
 
 var Server_TLSOptions_TLSmode_name = map[int32]string{
 	0: "PASSTHROUGH",
 	1: "SIMPLE",
 	2: "MUTUAL",
+	3: "ISTIO_MUTUAL",
 }
 var Server_TLSOptions_TLSmode_value = map[string]int32{
-	"PASSTHROUGH": 0,
-	"SIMPLE":      1,
-	"MUTUAL":      2,
+	"PASSTHROUGH":  0,
+	"SIMPLE":       1,
+	"MUTUAL":       2,
+	"ISTIO_MUTUAL": 3,
 }
 
 func (x Server_TLSOptions_TLSmode) String() string {

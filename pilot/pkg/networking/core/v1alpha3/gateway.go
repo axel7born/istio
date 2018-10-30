@@ -16,6 +16,8 @@ package v1alpha3
 
 import (
 	"fmt"
+	"path"
+	"strconv"
 
 	xdsapi "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/envoyproxy/go-control-plane/envoy/api/v2/auth"
@@ -178,6 +180,26 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(env *model.Environme
 	return validatedListeners, nil
 }
 
+func (configgen *ConfigGeneratorImpl) serviceAccounts(env *model.Environment, push *model.PushContext) []string {
+	saSet := make(map[string]bool)
+	for _, service := range push.Services {
+		for _, port := range service.Ports {
+			if port.Protocol == model.ProtocolUDP {
+				continue
+			}
+			for _, account := range env.ServiceAccounts.GetIstioServiceAccounts(service.Hostname, []string{strconv.Itoa(port.Port)}) {
+				saSet[account] = true
+			}
+		}
+	}
+	saArray := make([]string, 0, len(saSet))
+	for sa := range saSet {
+		saArray = append(saArray, sa)
+	}
+
+	return saArray
+}
+
 func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(env *model.Environment, node *model.Proxy, push *model.PushContext,
 	proxyInstances []*model.ServiceInstance, services []*model.Service, routeName string) (*xdsapi.RouteConfiguration, error) {
 
@@ -334,7 +356,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 				// and that no two non-HTTPS servers can be on same port or share port names.
 				// Validation is done per gateway and also during merging
 				sniHosts:   getSNIHostsForServer(server),
-				tlsContext: buildGatewayListenerTLSContext(server),
+				tlsContext: buildGatewayListenerTLSContext(server, configgen.serviceAccounts(env, push)),
 				httpOpts: &httpListenerOpts{
 					rds:              model.GatewayRDSRouteName(server),
 					useRemoteAddress: true,
@@ -348,48 +370,48 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(
 	return httpListeners
 }
 
-func buildGatewayListenerTLSContext(server *networking.Server) *auth.DownstreamTlsContext {
+func buildGatewayListenerTLSContext(server *networking.Server, upstreamServiceAccounts []string) *auth.DownstreamTlsContext {
 	// Server.TLS cannot be nil or passthrough. But as a safety guard, return nil
 	if server.Tls == nil || server.Tls.Mode == networking.Server_TLSOptions_PASSTHROUGH {
 		return nil // We don't need to setup TLS context for passthrough mode
 	}
 
+	istioMutual := server.Tls.Mode == networking.Server_TLSOptions_ISTIO_MUTUAL
 	var certValidationContext *auth.CertificateValidationContext
-	var trustedCa *core.DataSource
-	if len(server.Tls.CaCertificates) != 0 {
-		trustedCa = &core.DataSource{
-			Specifier: &core.DataSource_Filename{
-				Filename: server.Tls.CaCertificates,
-			},
-		}
-	}
-	if trustedCa != nil || len(server.Tls.SubjectAltNames) > 0 {
+	if istioMutual {
 		certValidationContext = &auth.CertificateValidationContext{
-			TrustedCa:            trustedCa,
-			VerifySubjectAltName: server.Tls.SubjectAltNames,
-		}
-	}
-
-	requireClientCert := server.Tls.Mode == networking.Server_TLSOptions_MUTUAL
-
-	return &auth.DownstreamTlsContext{
-		CommonTlsContext: &auth.CommonTlsContext{
-			TlsCertificates: []*auth.TlsCertificate{
-				{
-					CertificateChain: &core.DataSource{
-						Specifier: &core.DataSource_Filename{
-							Filename: server.Tls.ServerCertificate,
-						},
-					},
-					PrivateKey: &core.DataSource{
-						Specifier: &core.DataSource_Filename{
-							Filename: server.Tls.PrivateKey,
-						},
-					},
+			TrustedCa: &core.DataSource{
+				Specifier: &core.DataSource_Filename{
+					Filename: path.Join(model.AuthCertsPath, model.RootCertFilename),
 				},
 			},
+			VerifySubjectAltName: upstreamServiceAccounts,
+		}
+
+	} else {
+		var trustedCa *core.DataSource
+		if len(server.Tls.CaCertificates) != 0 {
+			trustedCa = &core.DataSource{
+				Specifier: &core.DataSource_Filename{
+					Filename: server.Tls.CaCertificates,
+				},
+			}
+		}
+
+		if trustedCa != nil || len(server.Tls.SubjectAltNames) > 0 {
+			certValidationContext = &auth.CertificateValidationContext{
+				TrustedCa:            trustedCa,
+				VerifySubjectAltName: server.Tls.SubjectAltNames,
+			}
+		}
+
+	}
+	requireClientCert := server.Tls.Mode == networking.Server_TLSOptions_MUTUAL
+
+	tlsContext := &auth.DownstreamTlsContext{
+		CommonTlsContext: &auth.CommonTlsContext{
 			ValidationContextType: &auth.CommonTlsContext_ValidationContext{
-				ValidationContext: certValidationContext,
+				ValidationContext: certValidationContext, //has certValidationContext.trustedCa to be changed?
 			},
 			AlpnProtocols: ListenersALPNProtocols,
 		},
@@ -397,6 +419,39 @@ func buildGatewayListenerTLSContext(server *networking.Server) *auth.DownstreamT
 			Value: requireClientCert,
 		},
 	}
+
+	if istioMutual {
+		tlsContext.CommonTlsContext.TlsCertificates = []*auth.TlsCertificate{
+			{
+				CertificateChain: &core.DataSource{
+					Specifier: &core.DataSource_Filename{
+						Filename: path.Join(model.AuthCertsPath, model.CertChainFilename),
+					},
+				},
+				PrivateKey: &core.DataSource{
+					Specifier: &core.DataSource_Filename{
+						Filename: path.Join(model.AuthCertsPath, model.KeyFilename),
+					},
+				},
+			},
+		}
+	} else {
+		tlsContext.CommonTlsContext.TlsCertificates = []*auth.TlsCertificate{
+			{
+				CertificateChain: &core.DataSource{
+					Specifier: &core.DataSource_Filename{
+						Filename: server.Tls.ServerCertificate,
+					},
+				},
+				PrivateKey: &core.DataSource{
+					Specifier: &core.DataSource_Filename{
+						Filename: server.Tls.PrivateKey,
+					},
+				},
+			},
+		}
+	}
+	return tlsContext
 }
 
 func (configgen *ConfigGeneratorImpl) createGatewayTCPFilterChainOpts(
@@ -427,7 +482,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayTCPFilterChainOpts(
 				push, server, gatewaysForWorkload); len(filters) > 0 {
 				opts = append(opts, &filterChainOpts{
 					sniHosts:       getSNIHostsForServer(server),
-					tlsContext:     buildGatewayListenerTLSContext(server),
+					tlsContext:     buildGatewayListenerTLSContext(server, configgen.serviceAccounts(env, push)),
 					networkFilters: filters,
 				})
 			}
