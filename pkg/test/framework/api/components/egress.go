@@ -15,40 +15,22 @@
 package components
 
 import (
-	"net/url"
 	"testing"
 
 	v1 "k8s.io/api/core/v1"
 
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test/framework/api/component"
 	"istio.io/istio/pkg/test/framework/api/ids"
 )
 
-// Ingress represents a deployed Ingress Gateway instance.
-type Ingress interface {
+// Egress represents a deployed Egress Gateway instance.
+type Egress interface {
 	component.Instance
-	// URL returns the external URL of the ingress gateway (or the NodePort address,
-	// when running under Minikube) for the given protocol
-	URL(protocol model.Protocol) (*url.URL, error)
-
-	//  Call makes an HTTP call through ingress, where the URL has the given path.
-	Call(path string) (IngressCallResponse, error)
-
 	// Configure a secret and wait for the existence
 	ConfigureSecretAndWaitForExistence(secret *v1.Secret) (*v1.Secret, error)
 }
 
-// IngressCallResponse is the result of a call made through Istio Ingress.
-type IngressCallResponse struct {
-	// Response status code
-	Code int
-
-	// Response body
-	Body string
-}
-
-// GetIngress from the repository
-func GetIngress(e component.Repository, t testing.TB) Ingress {
-	return e.GetComponentOrFail(ids.Ingress, t).(Ingress)
+// GetEgress from the repository
+func GetEgress(e component.Repository, t testing.TB) Egress {
+	return e.GetComponentOrFail("", ids.Egress, t).(Egress)
 }

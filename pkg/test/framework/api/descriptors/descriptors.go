@@ -78,6 +78,15 @@ var (
 		},
 	}
 
+	// Egress component
+	Egress = component.Descriptor{
+		ID:                ids.Egress,
+		IsSystemComponent: true,
+		Requires: []component.Requirement{
+			&ids.Environment,
+		},
+	}
+
 	// Prometheus component
 	Prometheus = component.Descriptor{
 		Key:               ids.Prometheus.GetKey(),
@@ -125,5 +134,11 @@ var (
 			&ids.Mixer,
 			&ids.Environment,
 		},
+	}
+
+	// VirtualIPAddressAllocator component
+	VirtualIPAddressAllocator = component.Descriptor{
+		ID:                ids.VirtualIPAddressAllocator,
+		IsSystemComponent: false,
 	}
 )

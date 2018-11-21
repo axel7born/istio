@@ -99,6 +99,13 @@ type nativeComponent struct {
 	apps             []components.App
 }
 
+type nativeSvc struct {
+}
+
+func (s *nativeSvc) ClusterIP() string {
+	return "127.0.0.1"
+}
+
 func (c *nativeComponent) Descriptor() component.Descriptor {
 	return descriptors.Apps
 }
@@ -360,22 +367,16 @@ func (a *nativeApp) EndpointsForProtocol(protocol model.Protocol) []components.A
 	return eps
 }
 
-func (a *nativeApp) Call(e components.AppEndpoint, opts components.AppCallOptions) ([]*echo.ParsedResponse, error) {
-	dst, ok := e.(*nativeEndpoint)
-	if !ok {
-		return nil, fmt.Errorf("supplied endpoint was not created by this environment")
-	}
-
+func (a *nativeApp) callURL(url *url.URL, dst components.App, opts components.AppCallOptions) ([]*echo.ParsedResponse, error) {
 	// Normalize the count.
 	if opts.Count <= 0 {
 		opts.Count = 1
 	}
 
 	// Forward a request from 'this' service to the destination service.
-	dstURL := dst.makeURL(opts)
-	dstServiceName := dst.owner.Name()
+	dstServiceName := dst.Name()
 	resp, err := a.client.ForwardEcho(&proto.ForwardEchoRequest{
-		Url:   dstURL.String(),
+		Url:   url.String(),
 		Count: int32(opts.Count),
 		Headers: []*proto.Header{
 			{
@@ -397,11 +398,16 @@ func (a *nativeApp) Call(e components.AppEndpoint, opts components.AppCallOption
 	if resp[0].Host != dstServiceName {
 		return nil, fmt.Errorf("unexpected host: %s", resp[0].Host)
 	}
-	if resp[0].Port != strconv.Itoa(dst.port.ApplicationPort) {
-		return nil, fmt.Errorf("unexpected port: %s", resp[0].Port)
-	}
-
 	return resp, nil
+
+}
+
+func (a *nativeApp) Call(e components.AppEndpoint, opts components.AppCallOptions) ([]*echo.ParsedResponse, error) {
+	dst, ok := e.(*nativeEndpoint)
+	if !ok {
+		return nil, fmt.Errorf("supplied endpoint was not created by this environment")
+	}
+	return a.callURL(dst.URL(), dst.owner, opts)
 }
 
 func (a *nativeApp) CallOrFail(e components.AppEndpoint, opts components.AppCallOptions, t testing.TB) []*echo.ParsedResponse {
@@ -429,18 +435,18 @@ func (e *nativeEndpoint) Protocol() model.Protocol {
 	return e.port.Protocol
 }
 
-func (e *nativeEndpoint) makeURL(opts components.AppCallOptions) *url.URL {
-	protocol := string(opts.Protocol)
-	switch protocol {
-	case components.AppProtocolHTTP:
-	case components.AppProtocolGRPC:
-	case components.AppProtocolWebSocket:
-	default:
-		protocol = string(components.AppProtocolHTTP)
-	}
+func (e *nativeEndpoint) URL() *url.URL {
+	var protocol string
 
-	if opts.Secure {
-		protocol += "s"
+	switch e.port.Protocol {
+	case model.ProtocolGRPC:
+		protocol = components.AppProtocolGRPC
+	case model.ProtocolGRPCWeb:
+		protocol = components.AppProtocolWebSocket
+	case model.ProtocolHTTPS:
+		protocol = components.AppProtocolHTTP + "s"
+	default:
+		protocol = components.AppProtocolHTTP
 	}
 
 	host := "127.0.0.1"

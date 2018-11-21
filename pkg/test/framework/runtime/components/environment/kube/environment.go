@@ -332,7 +332,7 @@ func (e *Environment) Close() (err error) {
 	// Delete test and dependency namespaces if allocated.
 	waitFuncs := make([]func() error, 0)
 	for _, ns := range []*namespace{e.testNamespace, e.suiteNamespace} {
-		if ns.created {
+		if ns != nil && ns.created {
 			waitFunc, e := ns.Close()
 			if e != nil {
 				err = multierror.Append(err, e)

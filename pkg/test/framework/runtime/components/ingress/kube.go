@@ -19,9 +19,15 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
+	v1 "k8s.io/api/core/v1"
+	errors2 "k8s.io/apimachinery/pkg/api/errors"
+	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test/framework/api/component"
 	"istio.io/istio/pkg/test/framework/api/components"
 	"istio.io/istio/pkg/test/framework/api/context"
@@ -29,6 +35,7 @@ import (
 	"istio.io/istio/pkg/test/framework/api/lifecycle"
 	"istio.io/istio/pkg/test/framework/runtime/api"
 	"istio.io/istio/pkg/test/framework/runtime/components/environment/kube"
+	kube2 "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 )
@@ -36,6 +43,10 @@ import (
 const (
 	serviceName = "istio-ingressgateway"
 	istioLabel  = "ingressgateway"
+	// Specifies how long we wait before a secret becomes existent.
+	secretWaitTime = 120 * time.Second
+	// Name of secret used by egress
+	secretName = "istio-ingressgateway-certs"
 )
 
 var (
@@ -47,8 +58,10 @@ var (
 )
 
 type kubeComponent struct {
-	scope   lifecycle.Scope
-	address string
+	scope                lifecycle.Scope
+	url                  func(model.Protocol) (*url.URL, error)
+	accessor             *kube2.Accessor
+	istioSystemNamespace string
 }
 
 // NewKubeComponent factory function for the component
@@ -72,6 +85,8 @@ func (c *kubeComponent) Start(ctx context.Instance, scope lifecycle.Scope) (err 
 		return err
 	}
 
+	c.accessor = env.Accessor
+	c.istioSystemNamespace = env.SystemNamespace()
 	address, err := retry.Do(func() (interface{}, bool, error) {
 
 		// In Minikube, we don't have the ingress gateway. Instead we do a little bit of trickery to to get the Node
@@ -99,9 +114,14 @@ func (c *kubeComponent) Start(ctx context.Instance, scope lifecycle.Scope) (err 
 				return nil, false, fmt.Errorf("no ports found in service: %s/%s", n, "istio-ingressgateway")
 			}
 
-			port := svc.Spec.Ports[0].NodePort
-
-			return fmt.Sprintf("http://%s:%d", ip, port), true, nil
+			return func(protocol model.Protocol) (*url.URL, error) {
+				for _, p := range svc.Spec.Ports {
+					if supportsProtocol(p.Name, protocol) {
+						return &url.URL{Scheme: strings.ToLower(string(protocol)), Host: fmt.Sprintf("%s:%d", ip, p.NodePort)}, nil
+					}
+				}
+				return nil, errors.New("no port found")
+			}, true, nil
 		}
 
 		// Otherwise, get the load balancer IP.
@@ -115,20 +135,36 @@ func (c *kubeComponent) Start(ctx context.Instance, scope lifecycle.Scope) (err 
 		}
 
 		ip := svc.Status.LoadBalancer.Ingress[0].IP
-		return fmt.Sprintf("http://%s", ip), true, nil
+		return func(protocol model.Protocol) (*url.URL, error) {
+			for _, p := range svc.Spec.Ports {
+				if supportsProtocol(p.Name, protocol) {
+					return &url.URL{Scheme: strings.ToLower(string(protocol)), Host: fmt.Sprintf("%s:%d", ip, p.Port)}, nil
+				}
+			}
+			return nil, errors.New("no port found")
+		}, true, nil
 	}, retryTimeout, retryDelay)
 
 	if err != nil {
 		return err
 	}
+	err = c.accessor.WaitForFilesExistence(c.istioSystemNamespace, fmt.Sprintf("istio=%s", istioLabel), []string{"/etc/certs/cert-chain.pem"}, secretWaitTime)
+	if err != nil {
+		return err
+	}
 
-	c.address = address.(string)
+	c.url = address.(func(protocol model.Protocol) (*url.URL, error))
 	return nil
 }
+func supportsProtocol(name string, protocol model.Protocol) bool {
+	return name == "http" && (protocol == model.ProtocolHTTP || protocol == model.ProtocolHTTP2) ||
+		name == "http2" && (protocol == model.ProtocolHTTP || protocol == model.ProtocolHTTP2) ||
+		name == "https" && protocol == model.ProtocolHTTPS
+}
 
-// Address implements environment.DeployedIngress
-func (c *kubeComponent) Address() string {
-	return c.address
+// URL implements environment.DeployedIngress
+func (c *kubeComponent) URL(protocol model.Protocol) (*url.URL, error) {
+	return c.url(protocol)
 }
 
 func (c *kubeComponent) Call(path string) (components.IngressCallResponse, error) {
@@ -139,11 +175,16 @@ func (c *kubeComponent) Call(path string) (components.IngressCallResponse, error
 	if !strings.HasPrefix(path, "/") {
 		path = "/" + path
 	}
-	url := c.address + path
+	url, err := c.url(model.ProtocolHTTP)
+	if err != nil {
+		return components.IngressCallResponse{}, err
+	}
+
+	url.Path = path
 
 	scopes.Framework.Debugf("Sending call to ingress at: %s", url)
 
-	req, err := http.NewRequest("GET", url, nil)
+	req, err := http.NewRequest("GET", url.String(), nil)
 	if err != nil {
 		return components.IngressCallResponse{}, err
 	}
@@ -158,7 +199,7 @@ func (c *kubeComponent) Call(path string) (components.IngressCallResponse, error
 	var ba []byte
 	ba, err = ioutil.ReadAll(resp.Body)
 	if err != nil {
-		scopes.Framework.Warnf("Unable to connect to read from %s: %v", c.address, err)
+		scopes.Framework.Warnf("Unable to connect to read from %s: %v", c.url, err)
 		return components.IngressCallResponse{}, err
 	}
 	contents := string(ba)
@@ -172,4 +213,37 @@ func (c *kubeComponent) Call(path string) (components.IngressCallResponse, error
 	// scopes.Framework.Debugf("Received response to ingress call (url: %s): %+v", url, response)
 
 	return response, nil
+}
+
+func (c *kubeComponent) ConfigureSecretAndWaitForExistence(secret *v1.Secret) (*v1.Secret, error) {
+	secret.Name = secretName
+	secretAPI := c.accessor.GetSecret(c.istioSystemNamespace)
+	_, err := secretAPI.Create(secret)
+	if err != nil {
+		switch t := err.(type) {
+		case *errors2.StatusError:
+			if t.ErrStatus.Reason == v12.StatusReasonAlreadyExists {
+				_, err := secretAPI.Update(secret)
+				if err != nil {
+					return nil, err
+				}
+			}
+		default:
+			return nil, err
+		}
+	}
+	secret, err = c.accessor.WaitForSecretExist(secretAPI, secretName, secretWaitTime)
+	if err != nil {
+		return nil, err
+	}
+
+	files := make([]string, 0)
+	for key := range secret.Data {
+		files = append(files, "/etc/istio/ingressgateway-certs/"+key)
+	}
+	err = c.accessor.WaitForFilesExistence(c.istioSystemNamespace, fmt.Sprintf("istio=%s", istioLabel), files, secretWaitTime)
+	if err != nil {
+		return nil, err
+	}
+	return secret, nil
 }

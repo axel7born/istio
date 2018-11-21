@@ -24,6 +24,7 @@ import (
 	"istio.io/istio/pkg/test/framework/runtime/components/bookinfo"
 	"istio.io/istio/pkg/test/framework/runtime/components/citadel"
 	"istio.io/istio/pkg/test/framework/runtime/components/echo"
+	"istio.io/istio/pkg/test/framework/runtime/components/egress"
 	"istio.io/istio/pkg/test/framework/runtime/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/runtime/components/environment/native"
 	"istio.io/istio/pkg/test/framework/runtime/components/galley"
@@ -32,6 +33,7 @@ import (
 	"istio.io/istio/pkg/test/framework/runtime/components/pilot"
 	"istio.io/istio/pkg/test/framework/runtime/components/policybackend"
 	"istio.io/istio/pkg/test/framework/runtime/components/prometheus"
+	"istio.io/istio/pkg/test/framework/runtime/components/vipaa"
 	"istio.io/istio/pkg/test/framework/runtime/registry"
 )
 
@@ -53,16 +55,19 @@ func init() {
 	Native.Register(descriptors.Mixer, true, mixer.NewNativeComponent)
 	Native.Register(descriptors.Pilot, true, pilot.NewNativeComponent)
 	Native.Register(descriptors.PolicyBackend, true, policybackend.NewNativeComponent)
+	Native.Register(descriptors.VirtualIPAddressAllocator, true, vipaa.NewNativeComponent)
 
 	// Register kubernetes components.
 	Kube.Register(descriptors.Apps, true, apps.NewKubeComponent)
 	Kube.Register(descriptors.BookInfo, true, bookinfo.NewKubeComponent)
 	Kube.Register(descriptors.Citadel, true, citadel.NewKubeComponent)
 	Kube.Register(descriptors.Ingress, true, ingress.NewKubeComponent)
+	Kube.Register(descriptors.Egress, true, egress.NewKubeComponent)
 	Kube.Register(descriptors.Mixer, true, mixer.NewKubeComponent)
 	Kube.Register(descriptors.Pilot, true, pilot.NewKubeComponent)
 	Kube.Register(descriptors.PolicyBackend, true, policybackend.NewKubeComponent)
 	Kube.Register(descriptors.Prometheus, true, prometheus.NewKubeComponent)
+	Kube.Register(descriptors.VirtualIPAddressAllocator, true, vipaa.NewKubeComponent)
 }
 
 // ForEnvironment returns the registry for the given environment
