@@ -18,6 +18,9 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"k8s.io/api/core/v1"
+	errors2 "k8s.io/apimachinery/pkg/api/errors"
+	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"net/http"
 	"strings"
 	"time"
@@ -29,6 +32,7 @@ import (
 	"istio.io/istio/pkg/test/framework/api/lifecycle"
 	"istio.io/istio/pkg/test/framework/runtime/api"
 	"istio.io/istio/pkg/test/framework/runtime/components/environment/kube"
+	kube2 "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 )
@@ -36,6 +40,10 @@ import (
 const (
 	serviceName = "istio-ingressgateway"
 	istioLabel  = "ingressgateway"
+	// Specifies how long we wait before a secret becomes existent.
+	secretWaitTime = 20 * time.Second
+	// Name of secret used by egress
+	secretName = "istio-ingressgateway-certs"
 )
 
 var (
@@ -49,6 +57,8 @@ var (
 type kubeComponent struct {
 	scope   lifecycle.Scope
 	address string
+	accessor *kube2.Accessor
+	istioSystemNamespace string
 }
 
 // NewKubeComponent factory function for the component
@@ -72,6 +82,8 @@ func (c *kubeComponent) Start(ctx context.Instance, scope lifecycle.Scope) (err 
 		return err
 	}
 
+	c.accessor = env.Accessor
+	c.istioSystemNamespace = env.SystemNamespace()
 	address, err := retry.Do(func() (interface{}, bool, error) {
 
 		// In Minikube, we don't have the ingress gateway. Instead we do a little bit of trickery to to get the Node
@@ -172,4 +184,25 @@ func (c *kubeComponent) Call(path string) (components.IngressCallResponse, error
 	// scopes.Framework.Debugf("Received response to ingress call (url: %s): %+v", url, response)
 
 	return response, nil
+}
+
+func (a *kubeComponent) ConfigureSecretAndWaitForExistence(secret *v1.Secret) (*v1.Secret, error) {
+	secret.Name = secretName
+	secretApi := a.accessor.GetSecret(a.istioSystemNamespace)
+	_, err := secretApi.Create(secret)
+	if err != nil {
+		switch t := err.(type) {
+		case *errors2.StatusError:
+			if t.ErrStatus.Reason == v12.StatusReasonAlreadyExists {
+				_, err := secretApi.Update(secret)
+				if err != nil {
+					return nil, err
+				}
+			}
+		default:
+			return nil, err
+		}
+	}
+	return a.accessor.WaitForSecretExist(secretApi, secretName, secretWaitTime)
+
 }

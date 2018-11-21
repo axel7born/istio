@@ -15,7 +15,7 @@
 package components
 
 import (
-	"net/http"
+	"net/url"
 	"testing"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -43,6 +43,11 @@ type Apps interface {
 	GetAppOrFail(name string, t testing.TB) App
 }
 
+// Service represents a deployed service within the mesh.
+type Service interface {
+	ClusterIP() string
+}
+
 // App represents a deployed fake App within the mesh.
 type App interface {
 	Name() string
@@ -50,28 +55,20 @@ type App interface {
 	EndpointsForProtocol(protocol model.Protocol) []AppEndpoint
 	Call(e AppEndpoint, opts AppCallOptions) ([]*echo.ParsedResponse, error)
 	CallOrFail(e AppEndpoint, opts AppCallOptions, t testing.TB) []*echo.ParsedResponse
+	Service() Service
+	CallURL(url *url.URL, dst App, opts AppCallOptions) ([]*echo.ParsedResponse, error)
+	CallURLOrFail(url *url.URL, dst App, opts AppCallOptions, t testing.TB) []*echo.ParsedResponse
 }
 
 // AppCallOptions defines options for calling a DeployedAppEndpoint.
 type AppCallOptions struct {
-	// Secure indicates whether a secure connection should be established to the endpoint.
-	Secure bool
-
-	// Protocol indicates the protocol to be used.
-	Protocol AppProtocol
-
-	// UseShortHostname indicates whether shortened hostnames should be used. This may be ignored by the environment.
-	UseShortHostname bool
-
 	// Count indicates the number of exchanges that should be made with the service endpoint. If not set (i.e. 0), defaults to 1.
 	Count int
-
-	// Headers indicates headers that should be sent in the request. Ingnored for WebSocket calls.
-	Headers http.Header
 }
 
 // AppEndpoint represents a single endpoint in a DeployedApp.
 type AppEndpoint interface {
+	URL() *url.URL
 	Name() string
 	Owner() App
 	Protocol() model.Protocol

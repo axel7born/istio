@@ -23,30 +23,14 @@ import (
 )
 
 // Ingress represents a deployed Ingress Gateway instance.
-type Ingress interface {
+type Egress interface {
 	component.Instance
-	// Address returns the external HTTP address of the ingress gateway (or the NodePort address,
-	// when running under Minikube).
-	Address() string
-
-	//  Call makes an HTTP call through ingress, where the URL has the given path.
-	Call(path string) (IngressCallResponse, error)
-
-
 	// Configure a secret and wait for the existence
 	ConfigureSecretAndWaitForExistence(secret *v1.Secret) (*v1.Secret, error)
 }
 
-// IngressCallResponse is the result of a call made through Istio Ingress.
-type IngressCallResponse struct {
-	// Response status code
-	Code int
-
-	// Response body
-	Body string
-}
 
 // GetIngress from the repository
-func GetIngress(e component.Repository, t testing.TB) Ingress {
-	return e.GetComponentOrFail("", ids.Ingress, t).(Ingress)
+func GetEgress(e component.Repository, t testing.TB) Egress {
+	return e.GetComponentOrFail(ids.Egress, t).(Egress)
 }

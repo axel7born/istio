@@ -386,28 +386,32 @@ func (e *endpoint) Protocol() model.Protocol {
 	return e.port.Protocol
 }
 
-func (e *endpoint) makeURL(opts components.AppCallOptions) *url.URL {
-	protocol := string(opts.Protocol)
-	switch protocol {
-	case components.AppProtocolHTTP:
-	case components.AppProtocolGRPC:
-	case components.AppProtocolWebSocket:
+func (e *endpoint) URL() *url.URL {
+	protocol := components.AppProtocolHTTP
+	switch e.port.Protocol {
+	case model.ProtocolGRPC:
+		protocol = components.AppProtocolGRPC
+	case model.ProtocolGRPCWeb:
+		protocol = components.AppProtocolWebSocket
+	case model.ProtocolHTTPS:
+		protocol = components.AppProtocolHTTP + "s"
 	default:
-		protocol = string(components.AppProtocolHTTP)
+		protocol = components.AppProtocolHTTP
 	}
 
-	if opts.Secure {
-		protocol += "s"
-	}
-
-	host := e.owner.serviceName
-	if !opts.UseShortHostname {
-		host += "." + e.owner.namespace
-	}
+	host := e.owner.serviceName + "." + e.owner.namespace
 	return &url.URL{
 		Scheme: protocol,
 		Host:   net.JoinHostPort(host, strconv.Itoa(e.port.Port)),
 	}
+}
+
+type kubeSvc struct {
+	*kubeApiCore.Service
+}
+
+func (s *kubeSvc) ClusterIP() string {
+	return s.Spec.ClusterIP
 }
 
 type kubeApp struct {
@@ -417,6 +421,7 @@ type kubeApp struct {
 	endpoints   []*endpoint
 	forwarder   testKube.PortForwarder
 	client      *echo.Client
+	service 	*kubeApiCore.Service
 }
 
 func newKubeApp(serviceName, namespace string, pod kubeApiCore.Pod, e *kube.Environment) (out components.App, err error) {
@@ -430,19 +435,19 @@ func newKubeApp(serviceName, namespace string, pod kubeApiCore.Pod, e *kube.Envi
 		}
 	}()
 
-	service, err := e.GetService(namespace, serviceName)
+	a.service, err = e.GetService(namespace, serviceName)
 	if err != nil {
 		return nil, err
 	}
 
 	// Get the app name for this service.
-	a.appName = service.Labels[appLabel]
+	a.appName = a.service.Labels[appLabel]
 	if len(a.appName) == 0 {
 		return nil, fmt.Errorf("service does not contain the 'app' label")
 	}
 
 	// Extract the endpoints from the service definition.
-	a.endpoints = getEndpoints(a, service)
+	a.endpoints = getEndpoints(a, a.service)
 
 	var grpcPort uint16
 	grpcPort, err = a.getGrpcPort()
@@ -489,6 +494,12 @@ func (a *kubeApp) Name() string {
 	return a.serviceName
 }
 
+func (a *kubeApp) Service() components.Service {
+	return &kubeSvc{a.service}
+}
+
+
+
 func getEndpoints(owner *kubeApp, service *kubeApiCore.Service) []*endpoint {
 	out := make([]*endpoint, len(service.Spec.Ports))
 	for i, servicePort := range service.Spec.Ports {
@@ -522,29 +533,16 @@ func (a *kubeApp) EndpointsForProtocol(protocol model.Protocol) []components.App
 	return out
 }
 
-// Call implements the environment.DeployedApp interface
-func (a *kubeApp) Call(e components.AppEndpoint, opts components.AppCallOptions) ([]*echo.ParsedResponse, error) {
-	dst, ok := e.(*endpoint)
-	if !ok {
-		return nil, fmt.Errorf("supplied endpoint was not created by this environment")
-	}
-
-	// Normalize the count.
-	if opts.Count <= 0 {
-		opts.Count = 1
-	}
-
-	// TODO(nmittler): Use an image with the new echo service and invoke the command port rather than scraping logs.
+func (a *kubeApp)  CallURL(url *url.URL, dst components.App, opts components.AppCallOptions)([]*echo.ParsedResponse, error) {
 	// Normalize the count.
 	if opts.Count <= 0 {
 		opts.Count = 1
 	}
 
 	// Forward a request from 'this' service to the destination service.
-	dstURL := dst.makeURL(opts)
-	dstServiceName := dst.owner.Name()
+	dstServiceName := dst.Name()
 	resp, err := a.client.ForwardEcho(&proto.ForwardEchoRequest{
-		Url:   dstURL.String(),
+		Url:   url.String(),
 		Count: int32(opts.Count),
 		Headers: []*proto.Header{
 			{
@@ -566,11 +564,32 @@ func (a *kubeApp) Call(e components.AppEndpoint, opts components.AppCallOptions)
 	if resp[0].Host != dstServiceName {
 		return nil, fmt.Errorf("unexpected host: %s", resp[0].Host)
 	}
-	if resp[0].Port != strconv.Itoa(dst.port.Port) {
+	if resp[0].Port != url.Port() {
 		return nil, fmt.Errorf("unexpected port: %s", resp[0].Port)
 	}
 
 	return resp, nil
+
+}
+
+// CallURLOrFail implements the environment.DeployedApp interface
+func (a *kubeApp) CallURLOrFail(url *url.URL, dst components.App, opts components.AppCallOptions, t testing.TB) []*echo.ParsedResponse {
+	r, err := a.CallURL(url, dst, opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return r
+}
+
+// Call implements the environment.DeployedApp interface
+func (a *kubeApp) Call(e components.AppEndpoint, opts components.AppCallOptions) ([]*echo.ParsedResponse, error) {
+	dst, ok := e.(*endpoint)
+	if !ok {
+		return nil, fmt.Errorf("supplied endpoint was not created by this environment")
+	}
+
+	return a.CallURL(dst.URL(),dst.owner,opts)
+
 }
 
 func (a *kubeApp) CallOrFail(e components.AppEndpoint, opts components.AppCallOptions, t testing.TB) []*echo.ParsedResponse {

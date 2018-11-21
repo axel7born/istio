@@ -37,6 +37,9 @@ var (
 	// Ingress component
 	Ingress = component.ID("ingress")
 
+	// Ingress component
+	Egress = component.ID("egress")
+
 	// Mixer component
 	Mixer = component.ID("mixer")
 
@@ -51,4 +54,7 @@ var (
 
 	// Prometheus component
 	Prometheus = component.ID("prometheus")
+
+	// Virtual IP Address Allocator component
+	VirtualIPAddressAllocator = component.ID("vipaa")
 )
