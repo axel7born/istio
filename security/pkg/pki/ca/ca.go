@@ -17,7 +17,6 @@ package ca
 import (
 	"encoding/pem"
 	"fmt"
-	"istio.io/istio/pkg/spiffe"
 	"time"
 
 	"k8s.io/api/core/v1"
@@ -96,7 +95,7 @@ type IstioCA struct {
 }
 
 // NewSelfSignedIstioCAOptions returns a new IstioCAOptions instance using self-signed certificate.
-func NewSelfSignedIstioCAOptions(caCertTTL, certTTL, maxCertTTL time.Duration, dualUse bool,
+func NewSelfSignedIstioCAOptions(caCertTTL, certTTL, maxCertTTL time.Duration, org string, dualUse bool,
 	namespace string, core corev1.SecretsGetter) (caOpts *IstioCAOptions, err error) {
 	// For the first time the CA is up, it generates a self-signed key/cert pair and write it to
 	// CASecret. For subsequent restart, CA will reads key/cert from CASecret.
@@ -111,7 +110,7 @@ func NewSelfSignedIstioCAOptions(caCertTTL, certTTL, maxCertTTL time.Duration, d
 
 		options := util.CertOptions{
 			TTL:          caCertTTL,
-			Org:          spiffe.GetTrustDomain(),
+			Org:          org,
 			IsCA:         true,
 			IsSelfSigned: true,
 			RSAKeySize:   caKeySize,
