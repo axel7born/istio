@@ -8,7 +8,6 @@ import (
 	"istio.io/istio/pkg/test/framework/api/ids"
 	"istio.io/istio/pkg/test/framework/api/lifecycle"
 	"istio.io/istio/pkg/test/framework/runtime/components/environment/kube"
-	"net/url"
 	"testing"
 
 	"istio.io/istio/pkg/test/framework/tmpl"
@@ -237,19 +236,12 @@ func TestTunnel(t *testing.T) {
 
 	be := b.EndpointsForProtocol(model.ProtocolHTTP)[0]
 
-	ingressURL, err := url.Parse(ingress.Address())
+	ingressURL, err := ingress.URL(model.ProtocolHTTPS)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	ingressPort := ingressURL.Port()
-	if ingressPort == "" {
-		if ingressURL.Scheme == "https" {
-			ingressPort = "443"
-		} else {
-			ingressPort = "80"
-		}
-	}
 
 	vipaa := components.GetVirtualIPAddressAllocator(ctx,t)
 	beURL := be.URL()
@@ -260,7 +252,7 @@ func TestTunnel(t *testing.T) {
 	_, err = env.ApplyContents(env.TestNamespace(),test.JoinConfigs(
 		dump(tmpl.EvaluateOrFail(clientSideConfig, map[string]interface{}{
 			"vip":            virtualIP,
-			"ingressAddress": ingressURL.Host,
+			"ingressAddress": ingressURL.Hostname(),
 			"ingressPort":    ingressPort,
 			"ingressDNS":     "service.istio.test.local", // Must match CN in certs/server.crt
 			"sidecarSNI":     "sni.of.destination.rule.in.sidecar",
@@ -276,9 +268,10 @@ func TestTunnel(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	tunnelURL := &url.URL{Host: fmt.Sprintf("%s:%d", virtualIP, virtualPort), Path: beURL.Path, Scheme: beURL.Scheme}
+	// tunnelURL := &url.URL{Host: fmt.Sprintf("%s:%d", virtualIP, virtualPort), Path: beURL.Path, Scheme: beURL.Scheme}
+	// result := a.CallURLOrFail( tunnelURL, b, components.AppCallOptions{}, t)[0]
 
-	result := a.CallURLOrFail(tunnelURL, b, components.AppCallOptions{}, t)[0]
+	result := a.CallOrFail( be, components.AppCallOptions{}, t)[0]
 
 	if !result.IsOK() {
 		t.Fatalf("HTTP Request unsuccessful: %s", result.Body)

@@ -41,6 +41,11 @@ var (
 	_ api.Component      = &kubeVipaa{}
 )
 
+
+func NewKubeComponent() (api.Component, error) {
+	return &kubeVipaa{}, nil
+}
+
 type kubeVipaa struct {
 	scope   lifecycle.Scope
 	accessor *kube.Accessor

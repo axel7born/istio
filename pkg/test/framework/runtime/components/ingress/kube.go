@@ -18,10 +18,12 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"istio.io/istio/pilot/pkg/model"
 	"k8s.io/api/core/v1"
 	errors2 "k8s.io/apimachinery/pkg/api/errors"
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -55,9 +57,9 @@ var (
 )
 
 type kubeComponent struct {
-	scope   lifecycle.Scope
-	address string
-	accessor *kube2.Accessor
+	scope                lifecycle.Scope
+	url                  func(model.Protocol) (*url.URL, error)
+	accessor             *kube2.Accessor
 	istioSystemNamespace string
 }
 
@@ -111,9 +113,14 @@ func (c *kubeComponent) Start(ctx context.Instance, scope lifecycle.Scope) (err 
 				return nil, false, fmt.Errorf("no ports found in service: %s/%s", n, "istio-ingressgateway")
 			}
 
-			port := svc.Spec.Ports[0].NodePort
-
-			return fmt.Sprintf("http://%s:%d", ip, port), true, nil
+			return func(protocol model.Protocol ) (*url.URL, error) {
+				for _, p := range svc.Spec.Ports {
+					if supportsProtocol(p.Name,protocol) {
+						return &url.URL{ Scheme: strings.ToLower(string(protocol)), Host: fmt.Sprintf("%s:%d",  ip, p.NodePort)}, nil
+					}
+				}
+				return nil, errors.New("No port found")
+			}, true, nil
 		}
 
 		// Otherwise, get the load balancer IP.
@@ -127,20 +134,32 @@ func (c *kubeComponent) Start(ctx context.Instance, scope lifecycle.Scope) (err 
 		}
 
 		ip := svc.Status.LoadBalancer.Ingress[0].IP
-		return fmt.Sprintf("http://%s", ip), true, nil
+		return func(protocol model.Protocol ) (*url.URL, error) {
+			for _, p := range svc.Spec.Ports {
+				if supportsProtocol(p.Name,protocol)  {
+					return &url.URL{ Scheme: strings.ToLower(string(protocol)), Host: fmt.Sprintf("%s:%d",  ip, p.Port)}, nil
+				}
+			}
+			return nil, errors.New("No port found")
+		}, true, nil
 	}, retryTimeout, retryDelay)
 
 	if err != nil {
 		return err
 	}
 
-	c.address = address.(string)
+	c.url = address.(func(protocol model.Protocol) (*url.URL, error))
 	return nil
 }
+func supportsProtocol(name string, protocol model.Protocol) bool {
+	return  name == "http" && (protocol == model.ProtocolHTTP ||  protocol == model.ProtocolHTTP2 )||
+		name == "http2" && ( protocol == model.ProtocolHTTP || protocol == model.ProtocolHTTP2 ) ||
+		name == "https" && protocol == model.ProtocolHTTPS
+}
 
-// Address implements environment.DeployedIngress
-func (c *kubeComponent) Address() string {
-	return c.address
+// URL implements environment.DeployedIngress
+func (c *kubeComponent) URL(protocol model.Protocol) (*url.URL, error) {
+	return c.url(protocol)
 }
 
 func (c *kubeComponent) Call(path string) (components.IngressCallResponse, error) {
@@ -151,11 +170,16 @@ func (c *kubeComponent) Call(path string) (components.IngressCallResponse, error
 	if !strings.HasPrefix(path, "/") {
 		path = "/" + path
 	}
-	url := c.address + path
+	url, err := c.url(model.ProtocolHTTP)
+	if err != nil {
+		return components.IngressCallResponse{}, err
+	}
+
+	url.Path = path
 
 	scopes.Framework.Debugf("Sending call to ingress at: %s", url)
 
-	req, err := http.NewRequest("GET", url, nil)
+	req, err := http.NewRequest("GET", url.String(), nil)
 	if err != nil {
 		return components.IngressCallResponse{}, err
 	}
@@ -170,7 +194,7 @@ func (c *kubeComponent) Call(path string) (components.IngressCallResponse, error
 	var ba []byte
 	ba, err = ioutil.ReadAll(resp.Body)
 	if err != nil {
-		scopes.Framework.Warnf("Unable to connect to read from %s: %v", c.address, err)
+		scopes.Framework.Warnf("Unable to connect to read from %s: %v", c.url, err)
 		return components.IngressCallResponse{}, err
 	}
 	contents := string(ba)

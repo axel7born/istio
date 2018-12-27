@@ -28,12 +28,16 @@ var (
 	_ api.Component      = &kubeEgress{}
 )
 
+
 type kubeEgress struct {
 	scope   lifecycle.Scope
 	accessor *kube2.Accessor
 	istioSystemNamespace string
 }
 
+func NewKubeComponent() (api.Component, error) {
+	return &kubeEgress{}, nil
+}
 
 func (c *kubeEgress) Descriptor() component.Descriptor {
 	return descriptors.Egress

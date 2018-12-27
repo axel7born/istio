@@ -15,7 +15,9 @@
 package components
 
 import (
+	"istio.io/istio/pilot/pkg/model"
 	"k8s.io/api/core/v1"
+	"net/url"
 	"testing"
 
 	"istio.io/istio/pkg/test/framework/api/component"
@@ -25,9 +27,9 @@ import (
 // Ingress represents a deployed Ingress Gateway instance.
 type Ingress interface {
 	component.Instance
-	// Address returns the external HTTP address of the ingress gateway (or the NodePort address,
-	// when running under Minikube).
-	Address() string
+	// URL returns the external URL of the ingress gateway (or the NodePort address,
+	// when running under Minikube) for the given protocol
+	URL(protocol model.Protocol) (*url.URL, error)
 
 	//  Call makes an HTTP call through ingress, where the URL has the given path.
 	Call(path string) (IngressCallResponse, error)

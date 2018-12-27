@@ -17,6 +17,10 @@ var (
 	_ api.Component      = &nativeVipaa{}
 )
 
+func NewNativeComponent() (api.Component, error) {
+	return &nativeVipaa{}, nil
+}
+
 type nativeVipaa struct {
 	scope   lifecycle.Scope
 	counter int
