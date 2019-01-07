@@ -58,7 +58,7 @@ spec:
   tcp:
   - match:
     - gateways:
-      - istio-echo-client
+      - istio-egressgateway-client
       port: 443
     route:
     - destination:
@@ -178,7 +178,7 @@ spec:
     - destination:
         host: index-binding-id.service-fabrik
         port:
-          number: 8000
+          number: {{ .port }}
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
