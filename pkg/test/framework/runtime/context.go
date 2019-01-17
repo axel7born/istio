@@ -83,6 +83,7 @@ func newContext(testID string) (*contextImpl, error) {
 		Defaults:   r,
 		registry:   r,
 		logOptions: s.LogOptions,
+		noCleanup:  s.NoCleanup,
 	}
 
 	// Create the dependency manager.
@@ -181,7 +182,12 @@ func (c *contextImpl) Reset() (err error) {
 }
 
 func (c *contextImpl) Close() (err error) {
-	// Close all of the components.
+	if c.NoCleanup() {
+		scopes.Framework.Info("Not cleaning up environment")
+		return
+	}
+
+		// Close all of the components.
 	if c.depManager != nil {
 		err = c.depManager.Close()
 		c.Repository = nil

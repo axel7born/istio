@@ -8,6 +8,7 @@ import (
 	"istio.io/istio/pkg/test/framework/api/ids"
 	"istio.io/istio/pkg/test/framework/api/lifecycle"
 	"istio.io/istio/pkg/test/framework/runtime/components/environment/kube"
+	"net/url"
 	"testing"
 
 	"istio.io/istio/pkg/test/framework/tmpl"
@@ -201,7 +202,7 @@ spec:
 
 func TestTunnel(t *testing.T) {
 	ctx := framework.GetContext(t)
-	ctx.RequireOrSkip(t, lifecycle.Test, &descriptors.KubernetesEnvironment, &ids.Egress, &ids.Ingress, &ids.Apps, &ids.VirtualIPAddressAllocator)
+	ctx.RequireOrSkip(t, lifecycle.Suite, &descriptors.KubernetesEnvironment, &ids.Egress, &ids.Ingress, &ids.Apps, &ids.VirtualIPAddressAllocator)
 
 	egress :=components.GetEgress(ctx,t)
 
@@ -232,7 +233,7 @@ func TestTunnel(t *testing.T) {
 	}
     apps := components.GetApps(ctx,t)
 	a := apps.GetAppOrFail("a",t)
-	b := apps.GetAppOrFail("b",t)
+	b := apps.GetAppOrFail("t",t)
 
 	be := b.EndpointsForProtocol(model.ProtocolHTTP)[0]
 
@@ -268,10 +269,10 @@ func TestTunnel(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// tunnelURL := &url.URL{Host: fmt.Sprintf("%s:%d", virtualIP, virtualPort), Path: beURL.Path, Scheme: beURL.Scheme}
-	// result := a.CallURLOrFail( tunnelURL, b, components.AppCallOptions{}, t)[0]
+	tunnelURL := &url.URL{Host: fmt.Sprintf("%s:%d", virtualIP, virtualPort), Path: beURL.Path, Scheme: beURL.Scheme}
+	result := a.CallURLOrFail( tunnelURL, b, components.AppCallOptions{}, t)[0]
 
-	result := a.CallOrFail( be, components.AppCallOptions{}, t)[0]
+	//result := a.CallOrFail( be, components.AppCallOptions{}, t)[0]
 
 	if !result.IsOK() {
 		t.Fatalf("HTTP Request unsuccessful: %s", result.Body)
