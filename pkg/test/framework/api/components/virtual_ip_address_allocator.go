@@ -25,9 +25,9 @@ import (
 type VirtualIPAddressAllocator interface {
 	component.Instance
 	// Allocate a new IP address
-	AllocateIPAddress(port int) (string, error)
+	AllocateIPAddress(port int, name string) (string, error)
 	// Allocate a new IP address
-	AllocateIPAddressOrFail(port int, t testing.TB) string
+	AllocateIPAddressOrFail(port int, name string, t testing.TB) string
 }
 
 

@@ -44,8 +44,6 @@ spec:
       mode: MUTUAL
       privateKey: /etc/certs/key.pem
       serverCertificate: /etc/certs/cert-chain.pem
-      subjectAltNames:
-      - spiffe://cluster.local/ns/default/sa/default
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
@@ -93,7 +91,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
 metadata:
   creationTimestamp: null
-  name: index-binding-id-service-entry
+  name: ingress-service-entry
 spec:
   endpoints:
   - address: {{.ingressAddress}}
@@ -113,7 +111,7 @@ spec:
   gateways:
   - mesh
   hosts:
-  - client
+  - {{ .serviceName }}
   tcp:
   - match:
     - destinationSubnets:
@@ -247,12 +245,14 @@ func TestTunnel(t *testing.T) {
 	vipaa := components.GetVirtualIPAddressAllocator(ctx,t)
 	beURL := be.URL()
 	virtualPort := 5555
-	virtualIP := vipaa.AllocateIPAddressOrFail(virtualPort, t)
+	serviceName := "client"
+	virtualIP := vipaa.AllocateIPAddressOrFail(virtualPort, serviceName, t)
 	env := kube.GetEnvironmentOrFail(ctx, t)
 
 	_, err = env.ApplyContents(env.TestNamespace(),test.JoinConfigs(
 		dump(tmpl.EvaluateOrFail(clientSideConfig, map[string]interface{}{
 			"vip":            virtualIP,
+			"serviceName":    serviceName,
 			"ingressAddress": ingressURL.Hostname(),
 			"ingressPort":    ingressPort,
 			"ingressDNS":     "service.istio.test.local", // Must match CN in certs/server.crt

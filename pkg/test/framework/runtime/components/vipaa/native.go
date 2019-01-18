@@ -41,12 +41,12 @@ func (v *nativeVipaa) Start(ctx context.Instance, scope lifecycle.Scope) (err er
 	return nil
 }
 
-func (v *nativeVipaa) AllocateIPAddress(port int) (string, error) {
+func (v *nativeVipaa) AllocateIPAddress(port int, name string) (string, error) {
 	v.counter += 1
 	return fmt.Sprintf("127.0.0.%d", v.counter), nil
 }
 
-func (v *nativeVipaa) AllocateIPAddressOrFail(port int, t testing.TB) string {
-	s, _ := v.AllocateIPAddress(port)
+func (v *nativeVipaa) AllocateIPAddressOrFail(port int, name string, t testing.TB) string {
+	s, _ := v.AllocateIPAddress(port, name)
 	return s
 }

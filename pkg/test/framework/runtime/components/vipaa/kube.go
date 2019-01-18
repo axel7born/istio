@@ -1,19 +1,18 @@
 package vipaa
 
 import (
+	"testing"
+
 	"istio.io/istio/pkg/test/framework/api/component"
 	"istio.io/istio/pkg/test/framework/api/components"
 	"istio.io/istio/pkg/test/framework/api/context"
 	"istio.io/istio/pkg/test/framework/api/descriptors"
 	"istio.io/istio/pkg/test/framework/api/lifecycle"
 	"istio.io/istio/pkg/test/framework/runtime/api"
-	"istio.io/istio/pkg/test/kube"
-	"testing"
 	kubeEnv "istio.io/istio/pkg/test/framework/runtime/components/environment/kube"
+	"istio.io/istio/pkg/test/kube"
 
-	"github.com/google/uuid"
 	"istio.io/istio/pkg/test/framework/tmpl"
-
 )
 
 const (
@@ -36,19 +35,17 @@ status:
 )
 
 var (
-
 	_ components.VirtualIPAddressAllocator = &kubeVipaa{}
-	_ api.Component      = &kubeVipaa{}
+	_ api.Component                        = &kubeVipaa{}
 )
-
 
 func NewKubeComponent() (api.Component, error) {
 	return &kubeVipaa{}, nil
 }
 
 type kubeVipaa struct {
-	scope   lifecycle.Scope
-	accessor *kube.Accessor
+	scope     lifecycle.Scope
+	accessor  *kube.Accessor
 	namespace string
 }
 
@@ -60,7 +57,6 @@ func (v *kubeVipaa) Scope() lifecycle.Scope {
 	return v.scope
 }
 
-
 func (v *kubeVipaa) Start(ctx context.Instance, scope lifecycle.Scope) (err error) {
 	v.scope = scope
 	env, err := kubeEnv.GetEnvironment(ctx)
@@ -70,13 +66,11 @@ func (v *kubeVipaa) Start(ctx context.Instance, scope lifecycle.Scope) (err erro
 
 	v.accessor = env.Accessor
 	v.namespace = env.TestNamespace()
-	return  nil
+	return nil
 }
 
-
-func (v *kubeVipaa) AllocateIPAddress(port int) (string, error) {
-	name := "kube-" + uuid.New().String()
-	_, err := v.accessor.ApplyContents(v.namespace,tmpl.EvaluateOrFail(service, map[string]interface{}{"name": name, "namespace": v.namespace, "port": port}, nil))
+func (v *kubeVipaa) AllocateIPAddress(port int, name string) (string, error) {
+	_, err := v.accessor.ApplyContents(v.namespace, tmpl.EvaluateOrFail(service, map[string]interface{}{"name": name, "namespace": v.namespace, "port": port}, nil))
 	if err != nil {
 		return "", err
 	}
@@ -87,8 +81,8 @@ func (v *kubeVipaa) AllocateIPAddress(port int) (string, error) {
 	return service.Spec.ClusterIP, nil
 }
 
-func (v *kubeVipaa) AllocateIPAddressOrFail(port int, t testing.TB) string {
-	ip, err := v.AllocateIPAddress(port)
+func (v *kubeVipaa) AllocateIPAddressOrFail(port int, name string, t testing.TB) string {
+	ip, err := v.AllocateIPAddress(port, name)
 	if err != nil {
 		t.Fatal(err)
 	}
