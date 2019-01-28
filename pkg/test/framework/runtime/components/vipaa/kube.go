@@ -24,9 +24,9 @@ metadata:
   namespace: {{ .namespace }}
 spec:
   ports:
-  - port: 5555
+  - port: {{ .port }}
     protocol: TCP
-    targetPort: 5555
+    targetPort: {{ .port }}
   sessionAffinity: None
   type: ClusterIP
 status:
@@ -65,7 +65,7 @@ func (v *kubeVipaa) Start(ctx context.Instance, scope lifecycle.Scope) (err erro
 	}
 
 	v.accessor = env.Accessor
-	v.namespace = env.TestNamespace()
+	v.namespace = env.SuiteNamespace()
 	return nil
 }
 

@@ -21,7 +21,7 @@ import (
 )
 
 const (
-	clientSideConfig = `
+	clientSideEgressConfig = `
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
@@ -72,6 +72,7 @@ metadata:
   name: egressgateway-client
 spec:
   host: {{ .ingressDNS }}
+  configScope: PRIVATE
   subsets:
   - name: client-2
     trafficPolicy:
@@ -86,6 +87,9 @@ spec:
           sni: {{ .ingressDNS }}
           subjectAltNames:
           - {{ .ingressDNS }}
+`
+
+	clientSideConfig = `
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
@@ -120,7 +124,7 @@ spec:
       - mesh
     route:
     - destination:
-        host: istio-egressgateway.istio-system.svc.cluster.local
+        host: istio-egressgateway.{{ .systemNamespace }}.svc.cluster.local
         port:
           number: 443
         subset: client
@@ -130,7 +134,7 @@ kind: DestinationRule
 metadata:
   name: sidecar-to-egress-client
 spec:
-  host: istio-egressgateway.istio-system.svc.cluster.local
+  host: istio-egressgateway.{{ .systemNamespace }}svc.cluster.local
   subsets:
   - name: client
     trafficPolicy:
@@ -249,6 +253,21 @@ func TestTunnel(t *testing.T) {
 	virtualIP := vipaa.AllocateIPAddressOrFail(virtualPort, serviceName, t)
 	env := kube.GetEnvironmentOrFail(ctx, t)
 
+	_, err = env.ApplyContents(env.SystemNamespace(),
+		dump(tmpl.EvaluateOrFail(clientSideEgressConfig, map[string]interface{}{
+			"vip":            virtualIP,
+			"serviceName":    serviceName,
+			"ingressAddress": ingressURL.Hostname(),
+			"ingressPort":    ingressPort,
+			"ingressDNS":     "service.istio.test.local", // Must match CN in certs/server.crt
+			"sidecarSNI":     "sni.of.destination.rule.in.sidecar",
+			"systemNamespace": env.SystemNamespace(),
+		}, t)))
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	_, err = env.ApplyContents(env.TestNamespace(),test.JoinConfigs(
 		dump(tmpl.EvaluateOrFail(clientSideConfig, map[string]interface{}{
 			"vip":            virtualIP,
@@ -257,6 +276,7 @@ func TestTunnel(t *testing.T) {
 			"ingressPort":    ingressPort,
 			"ingressDNS":     "service.istio.test.local", // Must match CN in certs/server.crt
 			"sidecarSNI":     "sni.of.destination.rule.in.sidecar",
+			"systemNamespace": env.SystemNamespace(),
 		}, t)),
 		dump(tmpl.EvaluateOrFail(serverSideConfig, map[string]interface{}{
 			"address":    b.Service().ClusterIP(),
@@ -269,7 +289,7 @@ func TestTunnel(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	tunnelURL := &url.URL{Host: fmt.Sprintf("%s:%d", virtualIP, virtualPort), Path: beURL.Path, Scheme: beURL.Scheme}
+	tunnelURL := &url.URL{Host: fmt.Sprintf("%s", virtualIP), Path: beURL.Path, Scheme: beURL.Scheme}
 	result := a.CallURLOrFail( tunnelURL, b, components.AppCallOptions{}, t)[0]
 
 	//result := a.CallOrFail( be, components.AppCallOptions{}, t)[0]
