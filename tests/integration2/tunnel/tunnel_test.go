@@ -13,8 +13,6 @@ import (
 
 	"istio.io/istio/pkg/test/framework/tmpl"
 
-	"istio.io/istio/pkg/test"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test/framework"
 	"k8s.io/api/core/v1"
@@ -268,7 +266,7 @@ func TestTunnel(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, err = env.ApplyContents(env.TestNamespace(),test.JoinConfigs(
+	_, err = env.ApplyContents(env.SuiteNamespace(),
 		dump(tmpl.EvaluateOrFail(clientSideConfig, map[string]interface{}{
 			"vip":            virtualIP,
 			"serviceName":    serviceName,
@@ -278,18 +276,24 @@ func TestTunnel(t *testing.T) {
 			"sidecarSNI":     "sni.of.destination.rule.in.sidecar",
 			"systemNamespace": env.SystemNamespace(),
 		}, t)),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = env.ApplyContents(env.TestNamespace(),
 		dump(tmpl.EvaluateOrFail(serverSideConfig, map[string]interface{}{
 			"address":    b.Service().ClusterIP(),
 			"port":       beURL.Port(),
 			"ingressDNS": "service.istio.test.local", // Must match CN in certs/server.crt
 			"clientSAN":  "client.istio.test.local",  // Must match CN and SAN in certs/client.crt
 		}, t)),
-	))
+	)
 
 	if err != nil {
 		t.Fatal(err)
 	}
-	tunnelURL := &url.URL{Host: fmt.Sprintf("%s", virtualIP), Path: beURL.Path, Scheme: beURL.Scheme}
+	tunnelURL := &url.URL{Host: fmt.Sprintf("%s:%d", virtualIP,virtualPort), Path: beURL.Path, Scheme: beURL.Scheme}
 	result := a.CallURLOrFail( tunnelURL, b, components.AppCallOptions{}, t)[0]
 
 	//result := a.CallOrFail( be, components.AppCallOptions{}, t)[0]
