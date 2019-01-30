@@ -19,6 +19,8 @@ import (
 	"strings"
 	"time"
 
+	"istio.io/istio/pkg/log"
+
 	multierror "github.com/hashicorp/go-multierror"
 
 	istioKube "istio.io/istio/pkg/kube"
@@ -410,7 +412,28 @@ func (a *Accessor) Exec(namespace, pod, container, command string) (string, erro
 	return a.ctl.exec(namespace, pod, container, command)
 }
 
-// CheckPodReady returns nil if the given pod and all of its containers are ready.
+func (a *Accessor) WaitForFilesExistence(namespace string, selector string, files []string, duration time.Duration) error {
+	_, err := retry.Do(func() (interface{}, bool, error) {
+		pods, err := a.GetPods(namespace, selector)
+		if err != nil {
+			return nil, true, err
+		}
+		for _, pod := range pods {
+			cmd := "test -f " + strings.Join(files, " -a -f ")
+			_, err := a.ctl.exec(namespace, pod.Name, "", cmd)
+			if err != nil {
+				return nil, false, err
+			}
+		}
+		return nil, true, nil
+	}, retry.Timeout(duration), defaultRetryDelay)
+
+	if err != nil {
+		log.Errora(err)
+	}
+	return err
+}
+
 func CheckPodReady(pod *kubeApiCore.Pod) error {
 	switch pod.Status.Phase {
 	case kubeApiCore.PodSucceeded:

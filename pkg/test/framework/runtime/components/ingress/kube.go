@@ -18,14 +18,15 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"istio.io/istio/pilot/pkg/model"
-	"k8s.io/api/core/v1"
-	errors2 "k8s.io/apimachinery/pkg/api/errors"
-	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
+
+	"istio.io/istio/pilot/pkg/model"
+	"k8s.io/api/core/v1"
+	errors2 "k8s.io/apimachinery/pkg/api/errors"
+	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/test/framework/api/component"
 	"istio.io/istio/pkg/test/framework/api/components"
@@ -43,7 +44,7 @@ const (
 	serviceName = "istio-ingressgateway"
 	istioLabel  = "ingressgateway"
 	// Specifies how long we wait before a secret becomes existent.
-	secretWaitTime = 20 * time.Second
+	secretWaitTime = 120 * time.Second
 	// Name of secret used by egress
 	secretName = "istio-ingressgateway-certs"
 )
@@ -113,10 +114,10 @@ func (c *kubeComponent) Start(ctx context.Instance, scope lifecycle.Scope) (err 
 				return nil, false, fmt.Errorf("no ports found in service: %s/%s", n, "istio-ingressgateway")
 			}
 
-			return func(protocol model.Protocol ) (*url.URL, error) {
+			return func(protocol model.Protocol) (*url.URL, error) {
 				for _, p := range svc.Spec.Ports {
-					if supportsProtocol(p.Name,protocol) {
-						return &url.URL{ Scheme: strings.ToLower(string(protocol)), Host: fmt.Sprintf("%s:%d",  ip, p.NodePort)}, nil
+					if supportsProtocol(p.Name, protocol) {
+						return &url.URL{Scheme: strings.ToLower(string(protocol)), Host: fmt.Sprintf("%s:%d", ip, p.NodePort)}, nil
 					}
 				}
 				return nil, errors.New("No port found")
@@ -134,10 +135,10 @@ func (c *kubeComponent) Start(ctx context.Instance, scope lifecycle.Scope) (err 
 		}
 
 		ip := svc.Status.LoadBalancer.Ingress[0].IP
-		return func(protocol model.Protocol ) (*url.URL, error) {
+		return func(protocol model.Protocol) (*url.URL, error) {
 			for _, p := range svc.Spec.Ports {
-				if supportsProtocol(p.Name,protocol)  {
-					return &url.URL{ Scheme: strings.ToLower(string(protocol)), Host: fmt.Sprintf("%s:%d",  ip, p.Port)}, nil
+				if supportsProtocol(p.Name, protocol) {
+					return &url.URL{Scheme: strings.ToLower(string(protocol)), Host: fmt.Sprintf("%s:%d", ip, p.Port)}, nil
 				}
 			}
 			return nil, errors.New("No port found")
@@ -147,13 +148,17 @@ func (c *kubeComponent) Start(ctx context.Instance, scope lifecycle.Scope) (err 
 	if err != nil {
 		return err
 	}
+	err = c.accessor.WaitForFilesExistence(c.istioSystemNamespace, fmt.Sprintf("istio=%s", istioLabel), []string{"/etc/certs/cert-chain.pem"}, secretWaitTime)
+	if err != nil {
+		return err
+	}
 
 	c.url = address.(func(protocol model.Protocol) (*url.URL, error))
 	return nil
 }
 func supportsProtocol(name string, protocol model.Protocol) bool {
-	return  name == "http" && (protocol == model.ProtocolHTTP ||  protocol == model.ProtocolHTTP2 )||
-		name == "http2" && ( protocol == model.ProtocolHTTP || protocol == model.ProtocolHTTP2 ) ||
+	return name == "http" && (protocol == model.ProtocolHTTP || protocol == model.ProtocolHTTP2) ||
+		name == "http2" && (protocol == model.ProtocolHTTP || protocol == model.ProtocolHTTP2) ||
 		name == "https" && protocol == model.ProtocolHTTPS
 }
 
@@ -227,6 +232,18 @@ func (a *kubeComponent) ConfigureSecretAndWaitForExistence(secret *v1.Secret) (*
 			return nil, err
 		}
 	}
-	return a.accessor.WaitForSecretExist(secretApi, secretName, secretWaitTime)
+	secret, err = a.accessor.WaitForSecretExist(secretApi, secretName, secretWaitTime)
+	if err != nil {
+		return nil, err
+	}
 
+	files := make([]string, 0)
+	for key := range secret.Data {
+		files = append(files, "/etc/istio/ingressgateway-certs/"+key)
+	}
+	err = a.accessor.WaitForFilesExistence(a.istioSystemNamespace, fmt.Sprintf("istio=%s", istioLabel), files, secretWaitTime)
+	if err != nil {
+		return nil, err
+	}
+	return secret, nil
 }

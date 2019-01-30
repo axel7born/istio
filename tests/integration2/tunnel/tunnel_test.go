@@ -85,9 +85,6 @@ spec:
           sni: {{ .ingressDNS }}
           subjectAltNames:
           - {{ .ingressDNS }}
-`
-
-	clientSideConfig = `
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
@@ -104,6 +101,9 @@ spec:
     number: {{.ingressPort}}
     protocol: TCP
   resolution: STATIC
+`
+
+	clientSideConfig = `
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
@@ -132,7 +132,7 @@ kind: DestinationRule
 metadata:
   name: sidecar-to-egress-client
 spec:
-  host: istio-egressgateway.{{ .systemNamespace }}svc.cluster.local
+  host: istio-egressgateway.{{ .systemNamespace }}.svc.cluster.local
   subsets:
   - name: client
     trafficPolicy:
@@ -159,8 +159,8 @@ spec:
     tls:
       caCertificates: /etc/istio/ingressgateway-certs/ca.crt
       mode: MUTUAL
-      privateKey: /etc/istio/ingressgateway-certs/cf-service.key
-      serverCertificate: /etc/istio/ingressgateway-certs/cf-service.crt
+      privateKey: /etc/istio/ingressgateway-certs/service.key
+      serverCertificate: /etc/istio/ingressgateway-certs/service.crt
       subjectAltNames:
       - {{ .clientSAN }}
 ---
