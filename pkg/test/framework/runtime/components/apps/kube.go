@@ -531,7 +531,7 @@ func (a *kubeApp) EndpointsForProtocol(protocol model.Protocol) []components.App
 	return out
 }
 
-func (a *kubeApp) CallURL(url *url.URL, dst components.App, opts components.AppCallOptions) ([]*echo.ParsedResponse, error) {
+func (a *kubeApp) callURL(url *url.URL, dst components.App, opts components.AppCallOptions) ([]*echo.ParsedResponse, error) {
 	// Normalize the count.
 	if opts.Count <= 0 {
 		opts.Count = 1
@@ -570,15 +570,6 @@ func (a *kubeApp) CallURL(url *url.URL, dst components.App, opts components.AppC
 
 }
 
-// CallURLOrFail implements the environment.DeployedApp interface
-func (a *kubeApp) CallURLOrFail(url *url.URL, dst components.App, opts components.AppCallOptions, t testing.TB) []*echo.ParsedResponse {
-	r, err := a.CallURL(url, dst, opts)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return r
-}
-
 // Call implements the environment.DeployedApp interface
 func (a *kubeApp) Call(e components.AppEndpoint, opts components.AppCallOptions) ([]*echo.ParsedResponse, error) {
 	dst, ok := e.(*endpoint)
@@ -586,7 +577,7 @@ func (a *kubeApp) Call(e components.AppEndpoint, opts components.AppCallOptions)
 		return nil, fmt.Errorf("supplied endpoint was not created by this environment")
 	}
 
-	return a.CallURL(dst.URL(), dst.owner, opts)
+	return a.callURL(dst.URL(), dst.owner, opts)
 
 }
 

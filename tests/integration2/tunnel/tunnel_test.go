@@ -295,10 +295,10 @@ func TestTunnel(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	tunnelURL := &url.URL{Host: fmt.Sprintf("%s:%d", virtualIP, virtualPort), Path: beURL.Path, Scheme: beURL.Scheme}
-	result := a.CallURLOrFail(tunnelURL, b, components.AppCallOptions{}, t)[0]
-
-	//result := a.CallOrFail( be, components.AppCallOptions{}, t)[0]
+	endpoint := &ExternAppEndpoint{
+		url:   &url.URL{Host: fmt.Sprintf("%s:%d", virtualIP, virtualPort), Path: beURL.Path, Scheme: beURL.Scheme},
+		owner: b}
+	result := a.CallOrFail(endpoint, components.AppCallOptions{}, t)[0]
 
 	if !result.IsOK() {
 		t.Fatalf("HTTP Request unsuccessful: %s", result.Body)
@@ -316,4 +316,25 @@ func readFileOrFail(filename string, t testing.TB) []byte {
 		t.Fatal(err)
 	}
 	return content
+}
+
+type ExternAppEndpoint struct {
+	url   *url.URL
+	owner components.App
+}
+
+func (e *ExternAppEndpoint) URL() *url.URL {
+	return e.url
+}
+
+func (e *ExternAppEndpoint) Name() string {
+	return e.owner.Name() + "endpoint"
+}
+
+func (e *ExternAppEndpoint) Owner() components.App {
+	return e.owner
+}
+
+func (e *ExternAppEndpoint) Protocol() model.Protocol {
+	return model.ProtocolHTTP
 }

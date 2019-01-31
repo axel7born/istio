@@ -56,8 +56,6 @@ type App interface {
 	Call(e AppEndpoint, opts AppCallOptions) ([]*echo.ParsedResponse, error)
 	CallOrFail(e AppEndpoint, opts AppCallOptions, t testing.TB) []*echo.ParsedResponse
 	Service() Service
-	CallURL(url *url.URL, dst App, opts AppCallOptions) ([]*echo.ParsedResponse, error)
-	CallURLOrFail(url *url.URL, dst App, opts AppCallOptions, t testing.TB) []*echo.ParsedResponse
 }
 
 // AppCallOptions defines options for calling a DeployedAppEndpoint.

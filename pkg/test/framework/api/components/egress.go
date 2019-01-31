@@ -23,14 +23,14 @@ import (
 	"istio.io/istio/pkg/test/framework/api/ids"
 )
 
-// Ingress represents a deployed Ingress Gateway instance.
+// Egress represents a deployed Egress Gateway instance.
 type Egress interface {
 	component.Instance
 	// Configure a secret and wait for the existence
 	ConfigureSecretAndWaitForExistence(secret *v1.Secret) (*v1.Secret, error)
 }
 
-// GetIngress from the repository
+// GetEgress from the repository
 func GetEgress(e component.Repository, t testing.TB) Egress {
 	return e.GetComponentOrFail(ids.Egress, t).(Egress)
 }
