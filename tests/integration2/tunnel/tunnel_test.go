@@ -3,21 +3,19 @@ package tunnel
 import (
 	"fmt"
 	"io/ioutil"
-
 	"net/url"
 	"testing"
 
+	v1 "k8s.io/api/core/v1"
+
+	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/api/components"
 	"istio.io/istio/pkg/test/framework/api/descriptors"
 	"istio.io/istio/pkg/test/framework/api/ids"
 	"istio.io/istio/pkg/test/framework/api/lifecycle"
 	"istio.io/istio/pkg/test/framework/runtime/components/environment/kube"
-
 	"istio.io/istio/pkg/test/framework/tmpl"
-
-	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/test/framework"
-	"k8s.io/api/core/v1"
 )
 
 const (

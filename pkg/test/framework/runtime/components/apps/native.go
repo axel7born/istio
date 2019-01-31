@@ -440,7 +440,8 @@ func (e *nativeEndpoint) Protocol() model.Protocol {
 }
 
 func (e *nativeEndpoint) URL() *url.URL {
-	protocol := components.AppProtocolHTTP
+	var protocol string
+
 	switch e.port.Protocol {
 	case model.ProtocolGRPC:
 		protocol = components.AppProtocolGRPC
