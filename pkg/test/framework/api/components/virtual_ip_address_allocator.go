@@ -30,7 +30,6 @@ type VirtualIPAddressAllocator interface {
 	AllocateIPAddressOrFail(port int, name string, t testing.TB) string
 }
 
-
 // GetIngress from the repository
 func GetVirtualIPAddressAllocator(e component.Repository, t testing.TB) VirtualIPAddressAllocator {
 	return e.GetComponentOrFail(ids.VirtualIPAddressAllocator, t).(VirtualIPAddressAllocator)

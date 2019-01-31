@@ -3,13 +3,15 @@ package tunnel
 import (
 	"fmt"
 	"io/ioutil"
+
+	"net/url"
+	"testing"
+
 	"istio.io/istio/pkg/test/framework/api/components"
 	"istio.io/istio/pkg/test/framework/api/descriptors"
 	"istio.io/istio/pkg/test/framework/api/ids"
 	"istio.io/istio/pkg/test/framework/api/lifecycle"
 	"istio.io/istio/pkg/test/framework/runtime/components/environment/kube"
-	"net/url"
-	"testing"
 
 	"istio.io/istio/pkg/test/framework/tmpl"
 
@@ -204,13 +206,13 @@ func TestTunnel(t *testing.T) {
 	ctx := framework.GetContext(t)
 	ctx.RequireOrSkip(t, lifecycle.Suite, &descriptors.KubernetesEnvironment, &ids.Egress, &ids.Ingress, &ids.Apps, &ids.VirtualIPAddressAllocator)
 
-	egress :=components.GetEgress(ctx,t)
+	egress := components.GetEgress(ctx, t)
 
 	_, err := egress.ConfigureSecretAndWaitForExistence(&v1.Secret{
 		Data: map[string][]byte{
-			"ca.crt":     readFileOrFail("certs/ca.crt",t),
-			"client.crt": readFileOrFail("certs/client.crt",t),
-			"client.key": readFileOrFail("certs/client.key",t),
+			"ca.crt":     readFileOrFail("certs/ca.crt", t),
+			"client.crt": readFileOrFail("certs/client.crt", t),
+			"client.key": readFileOrFail("certs/client.key", t),
 		},
 	})
 
@@ -218,22 +220,22 @@ func TestTunnel(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ingress := components.GetIngress(ctx,t)
+	ingress := components.GetIngress(ctx, t)
 
 	_, err = ingress.ConfigureSecretAndWaitForExistence(&v1.Secret{
 		Data: map[string][]byte{
-			"ca.crt":      readFileOrFail("certs/ca.crt",t),
-			"service.crt": readFileOrFail("certs/service.crt",t),
-			"service.key": readFileOrFail("certs/service.key",t),
+			"ca.crt":      readFileOrFail("certs/ca.crt", t),
+			"service.crt": readFileOrFail("certs/service.crt", t),
+			"service.key": readFileOrFail("certs/service.key", t),
 		},
 	})
 
 	if err != nil {
 		t.Fatal(err)
 	}
-    apps := components.GetApps(ctx,t)
-	a := apps.GetAppOrFail("a",t)
-	b := apps.GetAppOrFail("t",t)
+	apps := components.GetApps(ctx, t)
+	a := apps.GetAppOrFail("a", t)
+	b := apps.GetAppOrFail("t", t)
 
 	be := b.EndpointsForProtocol(model.ProtocolHTTP)[0]
 
@@ -244,7 +246,7 @@ func TestTunnel(t *testing.T) {
 
 	ingressPort := ingressURL.Port()
 
-	vipaa := components.GetVirtualIPAddressAllocator(ctx,t)
+	vipaa := components.GetVirtualIPAddressAllocator(ctx, t)
 	beURL := be.URL()
 	virtualPort := 5555
 	serviceName := "client"
@@ -253,12 +255,12 @@ func TestTunnel(t *testing.T) {
 
 	_, err = env.ApplyContents(env.SystemNamespace(),
 		dump(tmpl.EvaluateOrFail(clientSideEgressConfig, map[string]interface{}{
-			"vip":            virtualIP,
-			"serviceName":    serviceName,
-			"ingressAddress": ingressURL.Hostname(),
-			"ingressPort":    ingressPort,
-			"ingressDNS":     "service.istio.test.local", // Must match CN in certs/server.crt
-			"sidecarSNI":     "sni.of.destination.rule.in.sidecar",
+			"vip":             virtualIP,
+			"serviceName":     serviceName,
+			"ingressAddress":  ingressURL.Hostname(),
+			"ingressPort":     ingressPort,
+			"ingressDNS":      "service.istio.test.local", // Must match CN in certs/server.crt
+			"sidecarSNI":      "sni.of.destination.rule.in.sidecar",
 			"systemNamespace": env.SystemNamespace(),
 		}, t)))
 
@@ -268,12 +270,12 @@ func TestTunnel(t *testing.T) {
 
 	_, err = env.ApplyContents(env.SuiteNamespace(),
 		dump(tmpl.EvaluateOrFail(clientSideConfig, map[string]interface{}{
-			"vip":            virtualIP,
-			"serviceName":    serviceName,
-			"ingressAddress": ingressURL.Hostname(),
-			"ingressPort":    ingressPort,
-			"ingressDNS":     "service.istio.test.local", // Must match CN in certs/server.crt
-			"sidecarSNI":     "sni.of.destination.rule.in.sidecar",
+			"vip":             virtualIP,
+			"serviceName":     serviceName,
+			"ingressAddress":  ingressURL.Hostname(),
+			"ingressPort":     ingressPort,
+			"ingressDNS":      "service.istio.test.local", // Must match CN in certs/server.crt
+			"sidecarSNI":      "sni.of.destination.rule.in.sidecar",
 			"systemNamespace": env.SystemNamespace(),
 		}, t)),
 	)
@@ -293,8 +295,8 @@ func TestTunnel(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	tunnelURL := &url.URL{Host: fmt.Sprintf("%s:%d", virtualIP,virtualPort), Path: beURL.Path, Scheme: beURL.Scheme}
-	result := a.CallURLOrFail( tunnelURL, b, components.AppCallOptions{}, t)[0]
+	tunnelURL := &url.URL{Host: fmt.Sprintf("%s:%d", virtualIP, virtualPort), Path: beURL.Path, Scheme: beURL.Scheme}
+	result := a.CallURLOrFail(tunnelURL, b, components.AppCallOptions{}, t)[0]
 
 	//result := a.CallOrFail( be, components.AppCallOptions{}, t)[0]
 
@@ -315,4 +317,3 @@ func readFileOrFail(filename string, t testing.TB) []byte {
 	}
 	return content
 }
-

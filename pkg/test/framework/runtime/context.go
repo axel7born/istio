@@ -187,7 +187,7 @@ func (c *contextImpl) Close() (err error) {
 		return
 	}
 
-		// Close all of the components.
+	// Close all of the components.
 	if c.depManager != nil {
 		err = c.depManager.Close()
 		c.Repository = nil

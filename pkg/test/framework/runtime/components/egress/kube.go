@@ -66,15 +66,15 @@ func (c *kubeEgress) Start(ctx context.Instance, scope lifecycle.Scope) (err err
 	return nil
 }
 
-func (a *kubeEgress) ConfigureSecretAndWaitForExistence(secret *corev1.Secret) (*corev1.Secret, error) {
+func (c *kubeEgress) ConfigureSecretAndWaitForExistence(secret *corev1.Secret) (*corev1.Secret, error) {
 	secret.Name = secretName
-	secretApi := a.accessor.GetSecret(a.istioSystemNamespace)
-	_, err := secretApi.Create(secret)
+	secretAPI := c.accessor.GetSecret(c.istioSystemNamespace)
+	_, err := secretAPI.Create(secret)
 	if err != nil {
 		switch t := err.(type) {
 		case *errors2.StatusError:
 			if t.ErrStatus.Reason == v1.StatusReasonAlreadyExists {
-				_, err := secretApi.Update(secret)
+				_, err := secretAPI.Update(secret)
 				if err != nil {
 					return nil, err
 				}
@@ -83,7 +83,7 @@ func (a *kubeEgress) ConfigureSecretAndWaitForExistence(secret *corev1.Secret) (
 			return nil, err
 		}
 	}
-	secret, err = a.accessor.WaitForSecretExist(secretApi, secretName, secretWaitTime)
+	secret, err = c.accessor.WaitForSecretExist(secretAPI, secretName, secretWaitTime)
 	if err != nil {
 		return nil, err
 	}
@@ -91,7 +91,7 @@ func (a *kubeEgress) ConfigureSecretAndWaitForExistence(secret *corev1.Secret) (
 	for key := range secret.Data {
 		files = append(files, "/etc/istio/egressgateway-certs/"+key)
 	}
-	err = a.accessor.WaitForFilesExistence(a.istioSystemNamespace, fmt.Sprintf("istio=%s", istioLabel), files, secretWaitTime)
+	err = c.accessor.WaitForFilesExistence(c.istioSystemNamespace, fmt.Sprintf("istio=%s", istioLabel), files, secretWaitTime)
 	if err != nil {
 		return nil, err
 	}

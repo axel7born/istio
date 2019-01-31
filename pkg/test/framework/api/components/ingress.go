@@ -15,10 +15,11 @@
 package components
 
 import (
-	"istio.io/istio/pilot/pkg/model"
-	"k8s.io/api/core/v1"
 	"net/url"
 	"testing"
+
+	"istio.io/istio/pilot/pkg/model"
+	"k8s.io/api/core/v1"
 
 	"istio.io/istio/pkg/test/framework/api/component"
 	"istio.io/istio/pkg/test/framework/api/ids"
@@ -33,7 +34,6 @@ type Ingress interface {
 
 	//  Call makes an HTTP call through ingress, where the URL has the given path.
 	Call(path string) (IngressCallResponse, error)
-
 
 	// Configure a secret and wait for the existence
 	ConfigureSecretAndWaitForExistence(secret *v1.Secret) (*v1.Secret, error)

@@ -143,5 +143,4 @@ var (
 		ID:                ids.VirtualIPAddressAllocator,
 		IsSystemComponent: false,
 	}
-
 )

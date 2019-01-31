@@ -15,8 +15,9 @@
 package components
 
 import (
-	"k8s.io/api/core/v1"
 	"testing"
+
+	"k8s.io/api/core/v1"
 
 	"istio.io/istio/pkg/test/framework/api/component"
 	"istio.io/istio/pkg/test/framework/api/ids"
@@ -28,7 +29,6 @@ type Egress interface {
 	// Configure a secret and wait for the existence
 	ConfigureSecretAndWaitForExistence(secret *v1.Secret) (*v1.Secret, error)
 }
-
 
 // GetIngress from the repository
 func GetEgress(e component.Repository, t testing.TB) Egress {

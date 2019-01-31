@@ -387,7 +387,7 @@ func (e *endpoint) Protocol() model.Protocol {
 }
 
 func (e *endpoint) URL() *url.URL {
-	protocol := components.AppProtocolHTTP
+	var protocol string
 	switch e.port.Protocol {
 	case model.ProtocolGRPC:
 		protocol = components.AppProtocolGRPC
@@ -421,7 +421,7 @@ type kubeApp struct {
 	endpoints   []*endpoint
 	forwarder   testKube.PortForwarder
 	client      *echo.Client
-	service 	*kubeApiCore.Service
+	service     *kubeApiCore.Service
 }
 
 func newKubeApp(serviceName, namespace string, pod kubeApiCore.Pod, e *kube.Environment) (out components.App, err error) {
@@ -498,8 +498,6 @@ func (a *kubeApp) Service() components.Service {
 	return &kubeSvc{a.service}
 }
 
-
-
 func getEndpoints(owner *kubeApp, service *kubeApiCore.Service) []*endpoint {
 	out := make([]*endpoint, len(service.Spec.Ports))
 	for i, servicePort := range service.Spec.Ports {
@@ -533,7 +531,7 @@ func (a *kubeApp) EndpointsForProtocol(protocol model.Protocol) []components.App
 	return out
 }
 
-func (a *kubeApp)  CallURL(url *url.URL, dst components.App, opts components.AppCallOptions)([]*echo.ParsedResponse, error) {
+func (a *kubeApp) CallURL(url *url.URL, dst components.App, opts components.AppCallOptions) ([]*echo.ParsedResponse, error) {
 	// Normalize the count.
 	if opts.Count <= 0 {
 		opts.Count = 1
@@ -588,7 +586,7 @@ func (a *kubeApp) Call(e components.AppEndpoint, opts components.AppCallOptions)
 		return nil, fmt.Errorf("supplied endpoint was not created by this environment")
 	}
 
-	return a.CallURL(dst.URL(),dst.owner,opts)
+	return a.CallURL(dst.URL(), dst.owner, opts)
 
 }
 

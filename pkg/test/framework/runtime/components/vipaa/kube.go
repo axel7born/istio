@@ -70,7 +70,12 @@ func (v *kubeVipaa) Start(ctx context.Instance, scope lifecycle.Scope) (err erro
 }
 
 func (v *kubeVipaa) AllocateIPAddress(port int, name string) (string, error) {
-	_, err := v.accessor.ApplyContents(v.namespace, tmpl.EvaluateOrFail(service, map[string]interface{}{"name": name, "namespace": v.namespace, "port": port}, nil))
+	_, err := v.accessor.ApplyContents(v.namespace, tmpl.EvaluateOrFail(service,
+		map[string]interface{}{
+			"name":      name,
+			"namespace": v.namespace,
+			"port":      port},
+		nil))
 	if err != nil {
 		return "", err
 	}

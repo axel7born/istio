@@ -371,7 +371,7 @@ func (a *nativeApp) EndpointsForProtocol(protocol model.Protocol) []components.A
 	return eps
 }
 
-func (a *nativeApp)  CallURL(url *url.URL, dst components.App, opts components.AppCallOptions)([]*echo.ParsedResponse, error) {
+func (a *nativeApp) CallURL(url *url.URL, dst components.App, opts components.AppCallOptions) ([]*echo.ParsedResponse, error) {
 	// Normalize the count.
 	if opts.Count <= 0 {
 		opts.Count = 1
@@ -406,7 +406,6 @@ func (a *nativeApp)  CallURL(url *url.URL, dst components.App, opts components.A
 
 }
 
-
 // CallURLOrFail implements the environment.DeployedApp interface
 func (a *nativeApp) CallURLOrFail(url *url.URL, dst components.App, opts components.AppCallOptions, t testing.TB) []*echo.ParsedResponse {
 	r, err := a.CallURL(url, dst, opts)
@@ -421,7 +420,7 @@ func (a *nativeApp) Call(e components.AppEndpoint, opts components.AppCallOption
 	if !ok {
 		return nil, fmt.Errorf("supplied endpoint was not created by this environment")
 	}
-	return a.CallURL(dst.URL(),dst.owner,opts)
+	return a.CallURL(dst.URL(), dst.owner, opts)
 }
 
 func (a *nativeApp) CallOrFail(e components.AppEndpoint, opts components.AppCallOptions, t testing.TB) []*echo.ParsedResponse {

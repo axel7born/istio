@@ -120,7 +120,7 @@ func (c *kubeComponent) Start(ctx context.Instance, scope lifecycle.Scope) (err 
 						return &url.URL{Scheme: strings.ToLower(string(protocol)), Host: fmt.Sprintf("%s:%d", ip, p.NodePort)}, nil
 					}
 				}
-				return nil, errors.New("No port found")
+				return nil, errors.New("no port found")
 			}, true, nil
 		}
 
@@ -141,7 +141,7 @@ func (c *kubeComponent) Start(ctx context.Instance, scope lifecycle.Scope) (err 
 					return &url.URL{Scheme: strings.ToLower(string(protocol)), Host: fmt.Sprintf("%s:%d", ip, p.Port)}, nil
 				}
 			}
-			return nil, errors.New("No port found")
+			return nil, errors.New("no port found")
 		}, true, nil
 	}, retryTimeout, retryDelay)
 
@@ -215,15 +215,15 @@ func (c *kubeComponent) Call(path string) (components.IngressCallResponse, error
 	return response, nil
 }
 
-func (a *kubeComponent) ConfigureSecretAndWaitForExistence(secret *v1.Secret) (*v1.Secret, error) {
+func (c *kubeComponent) ConfigureSecretAndWaitForExistence(secret *v1.Secret) (*v1.Secret, error) {
 	secret.Name = secretName
-	secretApi := a.accessor.GetSecret(a.istioSystemNamespace)
-	_, err := secretApi.Create(secret)
+	secretAPI := c.accessor.GetSecret(c.istioSystemNamespace)
+	_, err := secretAPI.Create(secret)
 	if err != nil {
 		switch t := err.(type) {
 		case *errors2.StatusError:
 			if t.ErrStatus.Reason == v12.StatusReasonAlreadyExists {
-				_, err := secretApi.Update(secret)
+				_, err := secretAPI.Update(secret)
 				if err != nil {
 					return nil, err
 				}
@@ -232,7 +232,7 @@ func (a *kubeComponent) ConfigureSecretAndWaitForExistence(secret *v1.Secret) (*
 			return nil, err
 		}
 	}
-	secret, err = a.accessor.WaitForSecretExist(secretApi, secretName, secretWaitTime)
+	secret, err = c.accessor.WaitForSecretExist(secretAPI, secretName, secretWaitTime)
 	if err != nil {
 		return nil, err
 	}
@@ -241,7 +241,7 @@ func (a *kubeComponent) ConfigureSecretAndWaitForExistence(secret *v1.Secret) (*
 	for key := range secret.Data {
 		files = append(files, "/etc/istio/ingressgateway-certs/"+key)
 	}
-	err = a.accessor.WaitForFilesExistence(a.istioSystemNamespace, fmt.Sprintf("istio=%s", istioLabel), files, secretWaitTime)
+	err = c.accessor.WaitForFilesExistence(c.istioSystemNamespace, fmt.Sprintf("istio=%s", istioLabel), files, secretWaitTime)
 	if err != nil {
 		return nil, err
 	}
