@@ -43,11 +43,6 @@ type Apps interface {
 	GetAppOrFail(name string, t testing.TB) App
 }
 
-// Service represents a deployed service within the mesh.
-type Service interface {
-	ClusterIP() string
-}
-
 // App represents a deployed fake App within the mesh.
 type App interface {
 	Name() string
@@ -55,7 +50,6 @@ type App interface {
 	EndpointsForProtocol(protocol model.Protocol) []AppEndpoint
 	Call(e AppEndpoint, opts AppCallOptions) ([]*echo.ParsedResponse, error)
 	CallOrFail(e AppEndpoint, opts AppCallOptions, t testing.TB) []*echo.ParsedResponse
-	Service() Service
 }
 
 // AppCallOptions defines options for calling a DeployedAppEndpoint.

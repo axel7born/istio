@@ -348,7 +348,7 @@ func (c *kubeComponent) GetAppOrFail(name string, t testing.TB) components.App {
 
 func (c *kubeComponent) Close() (err error) {
 	for _, app := range c.apps {
-		err = multierror.Append(err, app.(*kubeApp).Close()).ErrorOrNil()
+		err = multierror.Append(err, app.(*KubeApp).Close()).ErrorOrNil()
 	}
 
 	// Don't delete the deployments if using Test scope, since the test namespace will be deleted later.
@@ -371,7 +371,7 @@ func (c *kubeComponent) Close() (err error) {
 
 type endpoint struct {
 	port  *model.Port
-	owner *kubeApp
+	owner *KubeApp
 }
 
 func (e *endpoint) Name() string {
@@ -414,7 +414,7 @@ func (s *kubeSvc) ClusterIP() string {
 	return s.Spec.ClusterIP
 }
 
-type kubeApp struct {
+type KubeApp struct {
 	namespace   string
 	serviceName string
 	appName     string
@@ -425,7 +425,7 @@ type kubeApp struct {
 }
 
 func newKubeApp(serviceName, namespace string, pod kubeApiCore.Pod, e *kube.Environment) (out components.App, err error) {
-	a := &kubeApp{
+	a := &KubeApp{
 		serviceName: serviceName,
 		namespace:   namespace,
 	}
@@ -472,7 +472,7 @@ func newKubeApp(serviceName, namespace string, pod kubeApiCore.Pod, e *kube.Envi
 	return
 }
 
-func (a *kubeApp) Close() (err error) {
+func (a *KubeApp) Close() (err error) {
 	if a.client != nil {
 		err = multierror.Append(err, a.client.Close()).ErrorOrNil()
 	}
@@ -482,7 +482,7 @@ func (a *kubeApp) Close() (err error) {
 	return
 }
 
-func (a *kubeApp) getGrpcPort() (uint16, error) {
+func (a *KubeApp) getGrpcPort() (uint16, error) {
 	commandEndpoints := a.EndpointsForProtocol(model.ProtocolGRPC)
 	if len(commandEndpoints) == 0 {
 		return 0, fmt.Errorf("unable fo find GRPC command port")
@@ -490,15 +490,15 @@ func (a *kubeApp) getGrpcPort() (uint16, error) {
 	return uint16(commandEndpoints[0].(*endpoint).port.Port), nil
 }
 
-func (a *kubeApp) Name() string {
+func (a *KubeApp) Name() string {
 	return a.serviceName
 }
 
-func (a *kubeApp) Service() components.Service {
-	return &kubeSvc{a.service}
+func (a *KubeApp) ClusterIP() string {
+	return (&kubeSvc{a.service}).ClusterIP()
 }
 
-func getEndpoints(owner *kubeApp, service *kubeApiCore.Service) []*endpoint {
+func getEndpoints(owner *KubeApp, service *kubeApiCore.Service) []*endpoint {
 	out := make([]*endpoint, len(service.Spec.Ports))
 	for i, servicePort := range service.Spec.Ports {
 		out[i] = &endpoint{
@@ -513,7 +513,7 @@ func getEndpoints(owner *kubeApp, service *kubeApiCore.Service) []*endpoint {
 	return out
 }
 
-func (a *kubeApp) Endpoints() []components.AppEndpoint {
+func (a *KubeApp) Endpoints() []components.AppEndpoint {
 	out := make([]components.AppEndpoint, len(a.endpoints))
 	for i, e := range a.endpoints {
 		out[i] = e
@@ -521,7 +521,7 @@ func (a *kubeApp) Endpoints() []components.AppEndpoint {
 	return out
 }
 
-func (a *kubeApp) EndpointsForProtocol(protocol model.Protocol) []components.AppEndpoint {
+func (a *KubeApp) EndpointsForProtocol(protocol model.Protocol) []components.AppEndpoint {
 	out := make([]components.AppEndpoint, 0)
 	for _, e := range a.endpoints {
 		if e.Protocol() == protocol {
@@ -531,7 +531,7 @@ func (a *kubeApp) EndpointsForProtocol(protocol model.Protocol) []components.App
 	return out
 }
 
-func (a *kubeApp) callURL(url *url.URL, dst components.App, opts components.AppCallOptions) ([]*echo.ParsedResponse, error) {
+func (a *KubeApp) callURL(url *url.URL, dst components.App, opts components.AppCallOptions) ([]*echo.ParsedResponse, error) {
 	// Normalize the count.
 	if opts.Count <= 0 {
 		opts.Count = 1
@@ -571,7 +571,7 @@ func (a *kubeApp) callURL(url *url.URL, dst components.App, opts components.AppC
 }
 
 // Call implements the environment.DeployedApp interface
-func (a *kubeApp) Call(e components.AppEndpoint, opts components.AppCallOptions) ([]*echo.ParsedResponse, error) {
+func (a *KubeApp) Call(e components.AppEndpoint, opts components.AppCallOptions) ([]*echo.ParsedResponse, error) {
 	dst, ok := e.(*endpoint)
 	if !ok {
 		return nil, fmt.Errorf("supplied endpoint was not created by this environment")
@@ -581,7 +581,7 @@ func (a *kubeApp) Call(e components.AppEndpoint, opts components.AppCallOptions)
 
 }
 
-func (a *kubeApp) CallOrFail(e components.AppEndpoint, opts components.AppCallOptions, t testing.TB) []*echo.ParsedResponse {
+func (a *KubeApp) CallOrFail(e components.AppEndpoint, opts components.AppCallOptions, t testing.TB) []*echo.ParsedResponse {
 	r, err := a.Call(e, opts)
 	if err != nil {
 		t.Fatal(err)

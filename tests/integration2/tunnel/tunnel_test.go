@@ -3,6 +3,7 @@ package tunnel
 import (
 	"fmt"
 	"io/ioutil"
+	apps2 "istio.io/istio/pkg/test/framework/runtime/components/apps"
 	"net/url"
 	"testing"
 
@@ -233,7 +234,7 @@ func TestTunnel(t *testing.T) {
 	}
 	apps := components.GetApps(ctx, t)
 	a := apps.GetAppOrFail("a", t)
-	b := apps.GetAppOrFail("t", t)
+	b := apps.GetAppOrFail("t", t).(*apps2.KubeApp)
 
 	be := b.EndpointsForProtocol(model.ProtocolHTTP)[0]
 
@@ -283,7 +284,7 @@ func TestTunnel(t *testing.T) {
 
 	_, err = env.ApplyContents(env.TestNamespace(),
 		dump(tmpl.EvaluateOrFail(serverSideConfig, map[string]interface{}{
-			"address":    b.Service().ClusterIP(),
+			"address":    b.ClusterIP(),
 			"port":       beURL.Port(),
 			"ingressDNS": "service.istio.test.local", // Must match CN in certs/server.crt
 			"clientSAN":  "client.istio.test.local",  // Must match CN and SAN in certs/client.crt

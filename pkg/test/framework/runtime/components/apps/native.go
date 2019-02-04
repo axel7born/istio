@@ -353,10 +353,6 @@ func (a *nativeApp) Name() string {
 	return a.name
 }
 
-func (a *nativeApp) Service() components.Service {
-	return &nativeSvc{}
-}
-
 func (a *nativeApp) Endpoints() []components.AppEndpoint {
 	return a.endpoints
 }
