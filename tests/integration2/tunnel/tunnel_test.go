@@ -70,9 +70,10 @@ apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
 metadata:
   name: egressgateway-client
+  namespace: istio-system
 spec:
   host: {{ .ingressDNS }}
-  configScope: PRIVATE
+  exportTo: [ "." ]
   subsets:
   - name: client-2
     trafficPolicy:
@@ -204,7 +205,8 @@ spec:
 
 func TestTunnel(t *testing.T) {
 	ctx := framework.GetContext(t)
-	ctx.RequireOrSkip(t, lifecycle.Suite, &descriptors.KubernetesEnvironment, &ids.Egress, &ids.Ingress, &ids.Apps, &ids.VirtualIPAddressAllocator)
+	ctx.RequireOrSkip(t, lifecycle.Suite, &descriptors.KubernetesEnvironment)
+	ctx.RequireOrFail(t, lifecycle.Suite, &ids.Egress, &ids.Ingress, &ids.Apps, &ids.VirtualIPAddressAllocator)
 
 	egress := components.GetEgress(ctx, t)
 

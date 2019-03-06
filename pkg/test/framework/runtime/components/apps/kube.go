@@ -572,12 +572,7 @@ func (a *KubeApp) callURL(url *url.URL, dst components.App, opts components.AppC
 
 // Call implements the environment.DeployedApp interface
 func (a *KubeApp) Call(e components.AppEndpoint, opts components.AppCallOptions) ([]*echo.ParsedResponse, error) {
-	dst, ok := e.(*endpoint)
-	if !ok {
-		return nil, fmt.Errorf("supplied endpoint was not created by this environment")
-	}
-
-	return a.callURL(dst.URL(), dst.owner, opts)
+	return a.callURL(e.URL(), e.Owner(), opts)
 
 }
 
