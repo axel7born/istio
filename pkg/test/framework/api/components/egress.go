@@ -32,5 +32,5 @@ type Egress interface {
 
 // GetEgress from the repository
 func GetEgress(e component.Repository, t testing.TB) Egress {
-	return e.GetComponentOrFail( ids.Egress, t).(Egress)
+	return e.GetComponentOrFail(ids.Egress, t).(Egress)
 }

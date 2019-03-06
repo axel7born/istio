@@ -80,7 +80,7 @@ var (
 
 	// Egress component
 	Egress = component.Descriptor{
-		Key:                ids.Egress.GetKey(),
+		Key:               ids.Egress.GetKey(),
 		IsSystemComponent: true,
 		Requires: []component.Requirement{
 			&ids.Environment,
@@ -138,7 +138,7 @@ var (
 
 	// VirtualIPAddressAllocator component
 	VirtualIPAddressAllocator = component.Descriptor{
-		Key:                ids.VirtualIPAddressAllocator.GetKey(),
+		Key:               ids.VirtualIPAddressAllocator.GetKey(),
 		IsSystemComponent: false,
 	}
 )
