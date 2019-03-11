@@ -37,6 +37,9 @@ type Ingress interface {
 
 	// Configure a secret and wait for the existence
 	ConfigureSecretAndWaitForExistence(secret *v1.Secret) (*v1.Secret, error)
+
+	// Add addition secret mountpoint
+	AddSecretMountPoint(path string) error
 }
 
 // IngressCallResponse is the result of a call made through Istio Ingress.

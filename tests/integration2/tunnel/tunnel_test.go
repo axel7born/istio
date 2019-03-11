@@ -3,12 +3,14 @@ package tunnel
 import (
 	"fmt"
 	"io/ioutil"
-	apps2 "istio.io/istio/pkg/test/framework/runtime/components/apps"
-	"istio.io/istio/pkg/log"
 	"net/url"
 	"testing"
+	"time"
 
-	v1 "k8s.io/api/core/v1"
+	"istio.io/istio/pkg/log"
+	apps2 "istio.io/istio/pkg/test/framework/runtime/components/apps"
+
+	"k8s.io/api/core/v1"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test/framework"
@@ -81,10 +83,10 @@ spec:
       - port:
           number: 443
         tls:
-          caCertificates: /etc/istio/egressgateway-certs/ca.crt
-          clientCertificate: /etc/istio/egressgateway-certs/client.crt
+          caCertificates: /etc/istio/tunnel-certs/ca.crt
+          clientCertificate: /etc/istio/tunnel-certs/client.crt
           mode: MUTUAL
-          privateKey: /etc/istio/egressgateway-certs/client.key
+          privateKey: /etc/istio/tunnel-certs/client.key
           sni: {{ .ingressDNS }}
           subjectAltNames:
           - {{ .ingressDNS }}
@@ -160,10 +162,10 @@ spec:
       number: 443
       protocol: TLS
     tls:
-      caCertificates: /etc/istio/ingressgateway-certs/ca.crt
+      caCertificates: /etc/istio/tunnel-certs/ca.crt
       mode: MUTUAL
-      privateKey: /etc/istio/ingressgateway-certs/service.key
-      serverCertificate: /etc/istio/ingressgateway-certs/service.crt
+      privateKey: /etc/istio/tunnel-certs/service.key
+      serverCertificate: /etc/istio/tunnel-certs/service.crt
       subjectAltNames:
       - {{ .clientSAN }}
 ---
@@ -209,12 +211,15 @@ func TestTunnel(t *testing.T) {
 	ctx.RequireOrFail(t, lifecycle.Suite, &ids.Egress, &ids.Ingress, &ids.Apps, &ids.VirtualIPAddressAllocator)
 
 	egress := components.GetEgress(ctx, t)
+	egress.AddSecretMountPoint("/etc/istio/tunnel-certs")
 
 	_, err := egress.ConfigureSecretAndWaitForExistence(&v1.Secret{
 		Data: map[string][]byte{
-			"ca.crt":     readFileOrFail("certs/ca.crt", t),
-			"client.crt": readFileOrFail("certs/client.crt", t),
-			"client.key": readFileOrFail("certs/client.key", t),
+			"ca.crt":      readFileOrFail("certs/ca.crt", t),
+			"service.crt": readFileOrFail("certs/service.crt", t),
+			"service.key": readFileOrFail("certs/service.key", t),
+			"client.crt":  readFileOrFail("certs/client.crt", t),
+			"client.key":  readFileOrFail("certs/client.key", t),
 		},
 	})
 
@@ -223,12 +228,15 @@ func TestTunnel(t *testing.T) {
 	}
 
 	ingress := components.GetIngress(ctx, t)
+	ingress.AddSecretMountPoint("/etc/istio/tunnel-certs")
 
 	_, err = ingress.ConfigureSecretAndWaitForExistence(&v1.Secret{
 		Data: map[string][]byte{
 			"ca.crt":      readFileOrFail("certs/ca.crt", t),
 			"service.crt": readFileOrFail("certs/service.crt", t),
 			"service.key": readFileOrFail("certs/service.key", t),
+			"client.crt":  readFileOrFail("certs/client.crt", t),
+			"client.key":  readFileOrFail("certs/client.key", t),
 		},
 	})
 
@@ -250,7 +258,7 @@ func TestTunnel(t *testing.T) {
 
 	vipaa := components.GetVirtualIPAddressAllocator(ctx, t)
 	beURL := be.URL()
-	virtualPort := 5555
+	virtualPort := 8080
 	serviceName := "client"
 	virtualIP := vipaa.AllocateIPAddressOrFail(virtualPort, serviceName, t)
 	env := kube.GetEnvironmentOrFail(ctx, t)
@@ -297,12 +305,11 @@ func TestTunnel(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	address := fmt.Sprintf("%s:%d", virtualIP, virtualPort)
-	log.Infof("Trying to call %s", address)
-	endpoint := &ExternAppEndpoint{
-		url:   &url.URL{Host: address, Path: beURL.Path, Scheme: beURL.Scheme},
-		owner: b}
-	result := a.CallOrFail(endpoint, components.AppCallOptions{}, t)[0]
+	log.Infof("wait for 10 seconds for config distribution.") // see https://github.com/istio/istio/issues/6170
+	time.Sleep(10 * time.Second)
+	url := &url.URL{Host: fmt.Sprintf("%s:%d", virtualIP, virtualPort), Path: beURL.Path, Scheme: beURL.Scheme}
+	log.Infof("Trying to call %s", url.String())
+	result := a.CallOrFail(&ExternAppEndpoint{url: url, owner: b}, components.AppCallOptions{}, t)[0]
 
 	if !result.IsOK() {
 		t.Fatalf("HTTP Request unsuccessful: %s", result.Body)

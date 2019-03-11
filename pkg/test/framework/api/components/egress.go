@@ -28,6 +28,9 @@ type Egress interface {
 	component.Instance
 	// Configure a secret and wait for the existence
 	ConfigureSecretAndWaitForExistence(secret *v1.Secret) (*v1.Secret, error)
+
+	// Add addition secret mountpoint
+	AddSecretMountPoint(path string) error
 }
 
 // GetEgress from the repository

@@ -28,6 +28,7 @@ import (
 	"istio.io/istio/pkg/test/util/retry"
 
 	kubeApiCore "k8s.io/api/core/v1"
+	extensions "k8s.io/api/extensions/v1beta1"
 	kubeApiExt "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	kubeExtClient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -432,6 +433,28 @@ func (a *Accessor) WaitForFilesExistence(namespace string, selector string, file
 		log.Errora(err)
 	}
 	return err
+}
+
+// GetDeployment get a deployment
+func (a *Accessor) GetDeployment(ns string, name string, opts ...retry.Option) (*extensions.Deployment, error) {
+	result, err := retry.Do(func() (interface{}, bool, error) {
+
+		deployment, err := a.set.ExtensionsV1beta1().Deployments(ns).Get(name, kubeApiMeta.GetOptions{})
+		if err != nil {
+			if !errors.IsNotFound(err) {
+				return nil, true, err
+			}
+			return nil, false, err
+		}
+
+		return deployment, true, nil
+	}, newRetryOptions(opts...)...)
+	return result.(*extensions.Deployment), err
+}
+
+// UpdateDeployment update a deployment
+func (a *Accessor) UpdateDeployment(deployment *extensions.Deployment) (*extensions.Deployment, error) {
+	return a.set.ExtensionsV1beta1().Deployments(deployment.Namespace).Update(deployment)
 }
 
 func CheckPodReady(pod *kubeApiCore.Pod) error {

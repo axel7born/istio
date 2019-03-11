@@ -46,7 +46,8 @@ const (
 	// Specifies how long we wait before a secret becomes existent.
 	secretWaitTime = 120 * time.Second
 	// Name of secret used by egress
-	secretName = "istio-ingressgateway-certs"
+	secretName     = "istio-ingressgateway-certs"
+	deploymentName = "istio-ingressgateway"
 )
 
 var (
@@ -246,4 +247,16 @@ func (c *kubeComponent) ConfigureSecretAndWaitForExistence(secret *v1.Secret) (*
 		return nil, err
 	}
 	return secret, nil
+}
+
+func (c *kubeComponent) AddSecretMountPoint(path string) error {
+	deployment, err := c.accessor.GetDeployment(c.istioSystemNamespace, deploymentName)
+	if err != nil {
+		return err
+	}
+	deployment.Spec.Template.Spec.Containers[0].VolumeMounts = append(deployment.Spec.Template.Spec.Containers[0].VolumeMounts,
+		v1.VolumeMount{MountPath: path, Name: "ingressgateway-certs", ReadOnly: true})
+
+	_, err = c.accessor.UpdateDeployment(deployment)
+	return err
 }
