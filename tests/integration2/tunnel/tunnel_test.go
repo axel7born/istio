@@ -10,7 +10,7 @@ import (
 	"istio.io/istio/pkg/log"
 	apps2 "istio.io/istio/pkg/test/framework/runtime/components/apps"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/test/framework"
