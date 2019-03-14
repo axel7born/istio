@@ -189,18 +189,18 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
 metadata:
-  creationTimestamp: null
-  name: index-binding-id-service-entry
+ creationTimestamp: null
+ name: index-binding-id-service-entry
 spec:
-  endpoints:
-  - address: {{ .address }}
-  hosts:
-  - index-binding-id.service-fabrik
-  ports:
-  - name: index-binding-id-7777
-    number: {{ .port }}
-    protocol: TCP
-  resolution: STATIC
+ endpoints:
+ - address: {{ .address }}
+ hosts:
+ - index-binding-id.service-fabrik
+ ports:
+ - name: index-binding-id-7777
+   number: {{ .port }}
+   protocol: TCP
+ resolution: STATIC
 
 `
 )
@@ -245,8 +245,10 @@ func TestTunnel(t *testing.T) {
 	}
 	apps := components.GetApps(ctx, t)
 	a := apps.GetAppOrFail("a", t)
-	b := apps.GetAppOrFail("t", t).(*apps2.KubeApp)
+	b := apps.GetAppOrFail("b", t).(*apps2.KubeApp)
+	ta := apps.GetAppOrFail("t", t).(*apps2.KubeApp)
 
+	te := ta.EndpointsForProtocol(model.ProtocolHTTP)[0]
 	be := b.EndpointsForProtocol(model.ProtocolHTTP)[0]
 
 	ingressURL, err := ingress.URL(model.ProtocolHTTPS)
@@ -256,17 +258,18 @@ func TestTunnel(t *testing.T) {
 
 	ingressPort := ingressURL.Port()
 
-	vipaa := components.GetVirtualIPAddressAllocator(ctx, t)
-	beURL := be.URL()
-	virtualPort := 8080
-	serviceName := "client"
-	virtualIP := vipaa.AllocateIPAddressOrFail(virtualPort, serviceName, t)
+	//vipaa := components.GetVirtualIPAddressAllocator(ctx, t)
+
+	teURL := te.URL()
+	//virtualPort := 8080
+	//serviceName := "client"
+	virtualIP := b.ClusterIP() // vipaa.AllocateIPAddressOrFail(virtualPort, serviceName, t)
 	env := kube.GetEnvironmentOrFail(ctx, t)
 
 	_, err = env.ApplyContents(env.SystemNamespace(),
 		dump(tmpl.EvaluateOrFail(clientSideEgressConfig, map[string]interface{}{
 			"vip":             virtualIP,
-			"serviceName":     serviceName,
+			"serviceName":     b.Name(), //serviceName,
 			"ingressAddress":  ingressURL.Hostname(),
 			"ingressPort":     ingressPort,
 			"ingressDNS":      "service.istio.test.local", // Must match CN in certs/server.crt
@@ -281,7 +284,7 @@ func TestTunnel(t *testing.T) {
 	_, err = env.ApplyContents(env.SuiteNamespace(),
 		dump(tmpl.EvaluateOrFail(clientSideConfig, map[string]interface{}{
 			"vip":             virtualIP,
-			"serviceName":     serviceName,
+			"serviceName":     b.Name(), //serviceName,
 			"ingressAddress":  ingressURL.Hostname(),
 			"ingressPort":     ingressPort,
 			"ingressDNS":      "service.istio.test.local", // Must match CN in certs/server.crt
@@ -295,8 +298,8 @@ func TestTunnel(t *testing.T) {
 
 	_, err = env.ApplyContents(env.TestNamespace(),
 		dump(tmpl.EvaluateOrFail(serverSideConfig, map[string]interface{}{
-			"address":    b.ClusterIP(),
-			"port":       beURL.Port(),
+			"address":    ta.ClusterIP(),
+			"port":       teURL.Port(),
 			"ingressDNS": "service.istio.test.local", // Must match CN in certs/server.crt
 			"clientSAN":  "client.istio.test.local",  // Must match CN and SAN in certs/client.crt
 		}, t)),
@@ -307,9 +310,12 @@ func TestTunnel(t *testing.T) {
 	}
 	log.Infof("wait for 10 seconds for config distribution.") // see https://github.com/istio/istio/issues/6170
 	time.Sleep(10 * time.Second)
-	url := &url.URL{Host: fmt.Sprintf("%s:%d", virtualIP, virtualPort), Path: beURL.Path, Scheme: beURL.Scheme}
-	log.Infof("Trying to call %s", url.String())
-	result := a.CallOrFail(&ExternAppEndpoint{url: url, owner: b}, components.AppCallOptions{}, t)[0]
+	//url := &url.URL{Host: fmt.Sprintf("%s:%d", serviceName, virtualPort), Path: teURL.Path, Scheme: teURL.Scheme}
+	//log.Infof("Trying to call %s", url.String())
+
+	result := a.CallOrFail(be, components.AppCallOptions{}, t)[0]
+
+	//result := a.CallOrFail(&ExternAppEndpoint{url: url, owner: b}, components.AppCallOptions{}, t)[0]
 
 	if !result.IsOK() {
 		t.Fatalf("HTTP Request unsuccessful: %s", result.Body)

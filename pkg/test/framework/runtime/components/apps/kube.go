@@ -87,6 +87,7 @@ spec:
   - port: 7070
     targetPort: {{ .port6 }}
     name: grpc
+{{- if eq .serviceOnly "false" }}
   selector:
     app: {{ .service }}
 ---
@@ -156,6 +157,7 @@ spec:
           periodSeconds: 10
           failureThreshold: 10
 {{- end }}
+{{- end }}
 ---
 `
 )
@@ -175,6 +177,7 @@ var (
 			injectProxy:    false,
 			headless:       false,
 			serviceAccount: false,
+			serviceOnly:    false,
 		},
 		{
 			deployment:     "a",
@@ -189,6 +192,7 @@ var (
 			injectProxy:    true,
 			headless:       false,
 			serviceAccount: false,
+			serviceOnly:    false,
 		},
 		{
 			deployment:     "b",
@@ -203,6 +207,7 @@ var (
 			injectProxy:    true,
 			headless:       false,
 			serviceAccount: true,
+			serviceOnly:    true,
 		},
 		{
 			deployment:     "c-v1",
@@ -217,6 +222,7 @@ var (
 			injectProxy:    true,
 			headless:       false,
 			serviceAccount: true,
+			serviceOnly:    false,
 		},
 		{
 			deployment:     "c-v2",
@@ -231,6 +237,7 @@ var (
 			injectProxy:    true,
 			headless:       false,
 			serviceAccount: true,
+			serviceOnly:    false,
 		},
 		{
 			deployment:     "d",
@@ -245,6 +252,7 @@ var (
 			injectProxy:    true,
 			headless:       false,
 			serviceAccount: true,
+			serviceOnly:    false,
 		},
 		{
 			deployment:     "headless",
@@ -259,6 +267,7 @@ var (
 			injectProxy:    true,
 			headless:       true,
 			serviceAccount: true,
+			serviceOnly:    false,
 		},
 	}
 
@@ -455,6 +464,10 @@ func newKubeApp(serviceName, namespace string, pod kubeApiCore.Pod, e *kube.Envi
 		return nil, err
 	}
 
+	if pod.Name == "" {
+		return a, nil
+	}
+
 	// Create a forwarder to the command port of the app.
 	a.forwarder, err = e.NewPortForwarder(&testKube.PodSelectOptions{
 		PodNamespace: pod.Namespace,
@@ -597,6 +610,7 @@ type deploymentFactory struct {
 	injectProxy    bool
 	headless       bool
 	serviceAccount bool
+	serviceOnly    bool
 }
 
 func (d *deploymentFactory) newDeployment(e *kube.Environment, scope lifecycle.Scope) (*deployment.Instance, error) {
@@ -619,6 +633,7 @@ func (d *deploymentFactory) newDeployment(e *kube.Environment, scope lifecycle.S
 		"injectProxy":     strconv.FormatBool(d.injectProxy),
 		"headless":        strconv.FormatBool(d.headless),
 		"serviceAccount":  strconv.FormatBool(d.serviceAccount),
+		"serviceOnly":     strconv.FormatBool(d.serviceOnly),
 	})
 	if err != nil {
 		return nil, err
@@ -633,7 +648,9 @@ func (d *deploymentFactory) newDeployment(e *kube.Environment, scope lifecycle.S
 
 func (d *deploymentFactory) waitUntilPodIsReady(e *kube.Environment, scope lifecycle.Scope) (kubeApiCore.Pod, error) {
 	ns := e.NamespaceForScope(scope)
-
+	if d.serviceOnly {
+		return kubeApiCore.Pod{}, nil
+	}
 	podFetchFunc := e.NewSinglePodFetch(ns, appSelector(d.service), fmt.Sprintf("version=%s", d.version))
 	if err := e.WaitUntilPodsAreReady(podFetchFunc); err != nil {
 		return kubeApiCore.Pod{}, err
