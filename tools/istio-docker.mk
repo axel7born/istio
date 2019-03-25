@@ -145,7 +145,7 @@ ifeq ($(DEBUG_IMAGE),1)
 	# It is extremely helpful to debug from the test app. The savings in size are not worth the
 	# developer pain
 	cp $(ISTIO_DOCKER)/testapp/Dockerfile.app $(ISTIO_DOCKER)/testapp/Dockerfile.appdbg
-	sed -e "s,FROM scratch,FROM $(HUB)/proxy_debug:$(TAG)," $(ISTIO_DOCKER)/testapp/Dockerfile.appdbg > $(ISTIO_DOCKER)/testapp/Dockerfile.appd
+	sed -e "s,FROM gcr.io/distroless/static,FROM $(HUB)/proxy_debug:$(TAG)," $(ISTIO_DOCKER)/testapp/Dockerfile.appdbg > $(ISTIO_DOCKER)/testapp/Dockerfile.appd
 endif
 	time (cd $(ISTIO_DOCKER)/testapp && \
 		docker build -t $(HUB)/app:$(TAG) -f Dockerfile.app .)
@@ -170,7 +170,6 @@ docker.servicegraph: addons/servicegraph/force
 
 docker.mixer: mixer/docker/Dockerfile.mixer
 docker.mixer: $(ISTIO_DOCKER)/mixs
-docker.mixer: $(ISTIO_DOCKER)/ca-certificates.tgz
 	$(DOCKER_RULE)
 
 # mixer codegen docker images
@@ -188,7 +187,6 @@ docker.galley: $(ISTIO_DOCKER)/galley
 
 docker.citadel: security/docker/Dockerfile.citadel
 docker.citadel: $(ISTIO_DOCKER)/istio_ca
-docker.citadel: $(ISTIO_DOCKER)/ca-certificates.tgz
 	$(DOCKER_RULE)
 
 docker.citadel-test: security/docker/Dockerfile.citadel-test

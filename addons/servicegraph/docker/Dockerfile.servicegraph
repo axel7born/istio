@@ -1,4 +1,4 @@
-FROM scratch
+FROM gcr.io/distroless/static
 
 WORKDIR /tmp/
 COPY servicegraph /usr/local/bin/
