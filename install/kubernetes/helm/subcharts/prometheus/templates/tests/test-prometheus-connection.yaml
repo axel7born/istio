@@ -20,7 +20,7 @@ spec:
 {{- end }}
   containers:
     - name: "{{ template "prometheus.fullname" . }}-test"
-      image: {{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}
+      image: istionightly/base_debug
       imagePullPolicy: "{{ .Values.global.imagePullPolicy }}"
       command: ['curl']
       args: ['http://prometheus:9090']
