@@ -1,4 +1,4 @@
-FROM istionightly/base_debug
+FROM gcr.io/distroless/cc
 ARG proxy_version
 ARG istio_version
 
@@ -20,13 +20,6 @@ ADD envoy_telemetry.yaml.tmpl /etc/istio/proxy/envoy_telemetry.yaml.tmpl
 ADD istio-iptables.sh /usr/local/bin/istio-iptables.sh
 
 COPY envoy_bootstrap_v2.json /var/lib/istio/envoy/envoy_bootstrap_tmpl.json
-
-RUN chmod 755 /usr/local/bin/envoy /usr/local/bin/pilot-agent
-
-# Sudoers used to allow tcpdump and other debug utilities.
-RUN useradd -m --uid 1337 istio-proxy && \
-    echo "istio-proxy ALL=NOPASSWD: ALL" >> /etc/sudoers && \
-    chown -R istio-proxy /var/lib/istio
 
 # The pilot-agent will bootstrap Envoy.
 ENTRYPOINT ["/usr/local/bin/pilot-agent"]
