@@ -119,6 +119,8 @@ docker.proxyv2: pilot/docker/envoy_telemetry.yaml.tmpl
 # Proxy using TPROXY interception - but no core dumps
 docker.proxytproxy: BUILD_ARGS=--build-arg proxy_version=istio-proxy:${PROXY_REPO_SHA} --build-arg istio_version=${VERSION}
 docker.proxytproxy: tools/deb/envoy_bootstrap_v2.json
+docker.proxytproxy: tools/deb/envoy_bootstrap_drain.json
+docker.proxytproxy: install/gcp/bootstrap/gcp_envoy_bootstrap.json
 docker.proxytproxy: $(ISTIO_ENVOY_RELEASE_DIR)/envoy
 docker.proxytproxy: $(ISTIO_OUT)/pilot-agent
 docker.proxytproxy: pilot/docker/Dockerfile.proxytproxy
