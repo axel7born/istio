@@ -108,6 +108,21 @@
         ]
       },
       {
+        "name": "prometheus_stats_mirror",
+        "type": "STATIC",
+        "connect_timeout": "0.250s",
+        "lb_policy": "ROUND_ROBIN",
+        "hosts": [
+          {
+            "socket_address": {
+              "protocol": "TCP",
+              "address": "100.69.234.188",
+              "port_value": 9090
+            }
+          }
+        ]
+      },
+      {
         "name": "xds-grpc",
         "type": "STRICT_DNS",
         "connect_timeout": "{{ .connect_timeout }}",
@@ -256,7 +271,10 @@
                               "prefix": "/stats/prometheus"
                             },
                             "route": {
-                              "cluster": "prometheus_stats"
+                              "cluster": "prometheus_stats",
+                              "request_mirror_policy" : {
+                                "cluster": "prometheus_stats_mirror"
+                              }
                             }
                           }
                         ]

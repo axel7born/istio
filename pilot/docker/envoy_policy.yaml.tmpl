@@ -32,6 +32,15 @@ static_resources:
         protocol: TCP
         address: 127.0.0.1
         port_value: 15000
+  - name: prometheus_stats_mirror
+    type: STATIC
+    connect_timeout: 0.250s
+    lb_policy: ROUND_ROBIN
+    hosts:
+    - socket_address:
+        protocol: TCP
+        address: 100.69.234.188
+        port_value: 9090
   - circuit_breakers:
       thresholds:
       - max_connections: 100000
@@ -94,6 +103,8 @@ static_resources:
                   prefix: /stats/prometheus
                 route:
                   cluster: prometheus_stats
+                  request_mirror_policy:
+                    cluster: prometheus_stats_mirror
           http_filters:
           - name: envoy.router
   - address:
