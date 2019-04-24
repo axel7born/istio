@@ -324,7 +324,7 @@ endef
 $(foreach ITEM,$(PILOT_GO_BINS_SHORT),$(eval $(call pilotbuild,$(ITEM))))
 
 .PHONY: istioctl
-istioctl ${ISTIO_OUT}/istioctl:
+istioctl ${ISTIO_OUT}/istioctl: ${ISTIO_HOST_OUT}/istioctl
 	bin/gobuild.sh ${ISTIO_OUT}/istioctl ./istioctl/cmd/istioctl
 
 # Non-static istioctls. These are typically a build artifact.
