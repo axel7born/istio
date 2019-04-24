@@ -24,10 +24,10 @@ COPY --from=default /etc/iproute2 /etc/iproute2
 COPY --from=default /bin/ip /bin/ip
 COPY --from=default /sbin/ip /sbin/ip
 
-COPY  --from=distroless_debug /busybox/sh /bin/sh
+COPY  --from=distroless_debug /busybox/sh /bin/bash
 
 # -----------------------------------------------------------------------------
 FROM ${BASE_DISTRIBUTION}
 
 ADD istio-iptables.sh /usr/local/bin/
-ENTRYPOINT ["/bin/sh", "/usr/local/bin/istio-iptables.sh"]
+ENTRYPOINT ["/usr/local/bin/istio-iptables.sh"]

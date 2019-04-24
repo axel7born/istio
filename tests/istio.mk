@@ -168,7 +168,7 @@ out_dir:
 test/local/auth/e2e_simple: out_dir generate_e2e_yaml
 	set -o pipefail; go test -v -timeout 25m ./tests/e2e/tests/simple -args --auth_enable=true \
 	--egress=false --ingress=false \
-	--rbac_enable=false --use_local_cluster --cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
+	--rbac_enable=false --cluster_wide ${E2E_ARGS} ${T} ${EXTRA_E2E_ARGS} ${CAPTURE_LOG}
 
 test/local/noauth/e2e_simple: out_dir generate_e2e_yaml
 	set -o pipefail; go test -v -timeout 25m ./tests/e2e/tests/simple -args --auth_enable=false \
