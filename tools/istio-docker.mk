@@ -254,8 +254,11 @@ docker.save: $(DOCKER_TAR_TARGETS)
 # for each docker.XXX target create a push.docker.XXX target that pushes
 # the local docker image to another hub
 # a possible optimization is to use tag.$(TGT) as a dependency to do the tag for us
-$(foreach TGT,$(DOCKER_TARGETS),$(eval push.$(TGT): | $(TGT) ; \
+$(foreach TGT,$(filter-out docker.app,$(DOCKER_TARGETS)),$(eval push.$(TGT): | $(TGT) ; \
 	time (set -e && for distro in $(BASE_DISTRIBUTIONS); do tag=$(TAG)_$$$${distro}; docker push $(HUB)/$(subst docker.,,$(TGT)):$$$${tag%_default}; done)))
+
+push.docker.app: docker.app
+	time (docker push $(HUB)/app:$(TAG))
 
 # create a DOCKER_PUSH_TARGETS that's each of DOCKER_TARGETS with a push. prefix
 DOCKER_PUSH_TARGETS:=
