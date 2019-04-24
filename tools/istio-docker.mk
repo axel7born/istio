@@ -194,6 +194,7 @@ docker.galley: $(ISTIO_DOCKER)/galley
 docker.citadel: security/docker/Dockerfile.citadel
 docker.citadel: $(ISTIO_DOCKER)/istio_ca
 docker.citadel: $(ISTIO_DOCKER)/ca-certificates.tgz
+	echo HALLO
 	$(DOCKER_RULE)
 
 docker.citadel-test: security/docker/Dockerfile.citadel-test
@@ -227,14 +228,8 @@ docker.node-agent-test: $(ISTIO_DOCKER)/node_agent.key
 # 4. This rule runs $(BUILD_PRE) prior to any docker build and only if specified as a dependency variable
 # 5. This rule finally runs docker build passing $(BUILD_ARGS) to docker if they are specified as a dependency variable
 
-define DOCKER_RULE=
-    time (mkdir -p $(DOCKER_BUILD_TOP)/$@ && \
-    cp -r $^ $(DOCKER_BUILD_TOP)/$@ && \
-    cd $(DOCKER_BUILD_TOP)/$@ && \
-    $(BUILD_PRE) docker build $(BUILD_ARGS) -t $(HUB)/$(subst docker.,,$@):$(TAG) -f Dockerfile$(suffix $@) . && \
-    docker build $(BUILD_ARGS) --build-arg BASE_DISTRIBUTION=distroless -t $(HUB)/$(subst docker.,,$@):$(TAG)_distroless -f Dockerfile$(suffix $@) \
-    )
-endef
+BASE_DISTRIBUTIONS:=default distroless
+DOCKER_RULE=time (mkdir -p $(DOCKER_BUILD_TOP)/$@ && cp -r $^ $(DOCKER_BUILD_TOP)/$@ && cd $(DOCKER_BUILD_TOP)/$@ && $(BUILD_PRE) set -e && for distro in $(BASE_DISTRIBUTIONS); do tag=$(TAG)_$${distro}; docker build $(BUILD_ARGS) --build-arg BASE_DISTRIBUTION=$${distro} -t $(HUB)/$(subst docker.,,$@):$${tag%_default} -f Dockerfile$(suffix $@) . ; done )
 
 # This target will package all docker images used in test and release, without re-building
 # go binaries. It is intended for CI/CD systems where the build is done in separate job.
@@ -260,7 +255,7 @@ docker.save: $(DOCKER_TAR_TARGETS)
 # the local docker image to another hub
 # a possible optimization is to use tag.$(TGT) as a dependency to do the tag for us
 $(foreach TGT,$(DOCKER_TARGETS),$(eval push.$(TGT): | $(TGT) ; \
-	time (docker push $(HUB)/$(subst docker.,,$(TGT)):$(TAG) && docker push $(HUB)/$(subst docker.,,$(TGT)):$(TAG)_distroless)))
+	time (set -e && for distro in $(BASE_DISTRIBUTIONS); do tag=$(TAG)_$$$${distro}; docker push $(HUB)/$(subst docker.,,$(TGT)):$$$${tag%_default}; done)))
 
 # create a DOCKER_PUSH_TARGETS that's each of DOCKER_TARGETS with a push. prefix
 DOCKER_PUSH_TARGETS:=

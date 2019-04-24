@@ -3,8 +3,10 @@ ARG BASE_DISTRIBUTION=default
 
 FROM istionightly/base_debug as default
 
+# -----------------------------------------------------------------------------
 FROM gcr.io/distroless/static as distroless
 
+# -----------------------------------------------------------------------------
 FROM ${BASE_DISTRIBUTION}
 ADD node_agent_k8s /
 ENTRYPOINT ["/node_agent_k8s"]

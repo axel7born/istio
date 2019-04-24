@@ -1,6 +1,7 @@
 # BASE_DISTRIBUTION is used to switch between the old base distribution and distroless base images
 ARG BASE_DISTRIBUTION=default
 
+# -----------------------------------------------------------------------------
 FROM istionightly/base_debug as default
 # Add CA certificates for SSL connections.
 # obtained from debian ca-certs deb using fetch_cacerts.sh
@@ -30,6 +31,7 @@ RUN useradd -m --uid 1337 istio-proxy && \
     echo "istio-proxy ALL=NOPASSWD: ALL" >> /etc/sudoers && \
     chown -R istio-proxy /var/lib/istio
 
+# -----------------------------------------------------------------------------
 FROM gcr.io/distroless/cc as distroless
 
 ADD envoy /usr/local/bin/envoy
@@ -42,6 +44,7 @@ COPY envoy_bootstrap_drain.json /var/lib/istio/envoy/envoy_bootstrap_drain.json
 COPY gcp_envoy_bootstrap.json /var/lib/istio/envoy/gcp_envoy_bootstrap_tmpl.json
 
 
+# -----------------------------------------------------------------------------
 FROM ${BASE_DISTRIBUTION}
 ARG proxy_version
 ARG istio_version

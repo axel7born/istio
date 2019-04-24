@@ -1,14 +1,17 @@
 # BASE_DISTRIBUTION is used to switch between the old base distribution and distroless base images
 ARG BASE_DISTRIBUTION=default
 
+# -----------------------------------------------------------------------------
 FROM ubuntu:xenial as default
 RUN apt-get update && apt-get upgrade -y && apt-get install -y \
     iproute2 \
     iptables \
  && rm -rf /var/lib/apt/lists/*
 
+# -----------------------------------------------------------------------------
 FROM gcr.io/distroless/base:debug as distroless_debug
 
+# -----------------------------------------------------------------------------
 FROM gcr.io/distroless/base:debug as distroless
 
 COPY --from=default /sbin/xtables-multi /sbin/xtables-multi
@@ -23,6 +26,7 @@ COPY --from=default /sbin/ip /sbin/ip
 
 COPY  --from=distroless_debug /busybox/sh /bin/sh
 
+# -----------------------------------------------------------------------------
 FROM ${BASE_DISTRIBUTION}
 
 ADD istio-iptables.sh /usr/local/bin/
