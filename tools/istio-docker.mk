@@ -229,7 +229,7 @@ docker.node-agent-test: $(ISTIO_DOCKER)/node_agent.key
 # 5. This rule finally runs docker build passing $(BUILD_ARGS) to docker if they are specified as a dependency variable
 
 BASE_DISTRIBUTIONS:=default distroless
-DEFAULT_DISTRIBUTION=distroless
+DEFAULT_DISTRIBUTION=default
 DOCKER_RULE=time (mkdir -p $(DOCKER_BUILD_TOP)/$@ && cp -r $^ $(DOCKER_BUILD_TOP)/$@ && cd $(DOCKER_BUILD_TOP)/$@ && $(BUILD_PRE) set -e && for distro in $(BASE_DISTRIBUTIONS); do tag=$(TAG)-$${distro}; docker build $(BUILD_ARGS) --build-arg BASE_DISTRIBUTION=$${distro} -t $(HUB)/$(subst docker.,,$@):$${tag%-$(DEFAULT_DISTRIBUTION)} -f Dockerfile$(suffix $@) . ; done )
 
 # This target will package all docker images used in test and release, without re-building
