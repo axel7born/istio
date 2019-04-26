@@ -20,7 +20,7 @@ RUN useradd -m --uid 1337 istio-proxy && \
     chown -R istio-proxy /var/lib/istio
 
 # -----------------------------------------------------------------------------
-FROM gcr.io/distroless/static as distroless
+FROM gcr.io/distroless/base as distroless
 
 # Copy Envoy bootstrap templates used by pilot-agent
 COPY envoy_bootstrap_v2.json /var/lib/istio/envoy/envoy_bootstrap_tmpl.json
