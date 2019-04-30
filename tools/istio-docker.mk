@@ -194,7 +194,6 @@ docker.galley: $(ISTIO_DOCKER)/galley
 docker.citadel: security/docker/Dockerfile.citadel
 docker.citadel: $(ISTIO_DOCKER)/istio_ca
 docker.citadel: $(ISTIO_DOCKER)/ca-certificates.tgz
-	echo HALLO
 	$(DOCKER_RULE)
 
 docker.citadel-test: security/docker/Dockerfile.citadel-test
