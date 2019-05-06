@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/bin/ash
+# shellcheck shell=dash
 #
 # Copyright 2017, 2018 Istio Authors. All Rights Reserved.
 #
@@ -18,7 +19,7 @@
 #
 # Initialization script responsible for setting up port forwarding for Istio sidecar.
 
-function usage() {
+usage() {
   echo "${0} -p PORT -u UID -g GID [-m mode] [-b ports] [-d ports] [-i CIDR] [-x CIDR] [-k interfaces] [-t] [-h]"
   echo ''
   # shellcheck disable=SC2016
@@ -55,12 +56,12 @@ function usage() {
   echo 'Using environment variables in $ISTIO_SIDECAR_CONFIG (default: /var/lib/istio/envoy/sidecar.env)'
 }
 
-function dump {
+dump() {
     iptables-save
     ip6tables-save
 }
 
-function isValidIP() {
+isValidIP() {
    if isIPv4 "${1}"; then
       true
    elif isIPv6 "${1}"; then
@@ -72,9 +73,9 @@ function isValidIP() {
 #
 # Function return true if agrument is a valid ipv4 address
 #
-function isIPv4() {
+isIPv4() {
    local ipv4regexp="^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$"
-   if [[ ${1} =~ ${ipv4regexp} ]]; then
+   if echo "${1}" | grep -q -E  "${ipv4regexp}"; then
       true
    else
       false
@@ -83,41 +84,38 @@ function isIPv4() {
 #
 # Function return true if agrument is a valid ipv6 address
 #
-function isIPv6() {
+isIPv6() {
   local ipv6section="^[0-9a-fA-F]{1,4}$"
-  addr="$1"
+  addr=$(echo "$1" | sed -e 's/:/: /g')
   number_of_parts=0
   number_of_skip=0
-  IFS=':' read -r -a addr <<< "$1"
-  if [ ${#addr[@]} -eq 0 ]; then
+  if [ "$(echo "${addr}" | wc -w)" -eq 0 ]; then
      return 1
   fi
-  for part in "${addr[@]}"; do
+  for part in ${addr}; do
+    part=${part%:}
     # check to not exceed number of parts in ipv6 address
-    if [[ ${number_of_parts} -ge 8 ]]; then
+    if [ ${number_of_parts} -ge 8 ]; then
         return 1
     fi
-    if [[ ${number_of_parts} -eq 0 ]] && ! [[ ${part} =~ ${ipv6section} ]]; then
+    if [ ${number_of_parts} -eq 0 ] && ! echo "${part}" | grep -q -E "${ipv6section}"; then
         return 1
     fi
-    if ! [[ ${part} =~ ${ipv6section} ]]; then
-       if ! [[ "$part" == "" ]]; then
+    if ! echo "${part}" | grep -q -E "${ipv6section}"; then
+       if ! [ "${part}" = "" ]; then
           return 1
        else
           # Found empty part, no more than 2 sections '::' are allowed in ipv6 address
-          if [[ "$number_of_skip" -ge 1 ]]; then
+          if [ "$number_of_skip" -ge 1 ]; then
              return 1
           fi
-          ((number_of_skip++))
+          number_of_skip=$((number_of_skip+1))
        fi
     fi
-    ((number_of_parts++))
+    number_of_parts=$((number_of_parts+1))
   done
   return 0
 }
-
-# Use a comma as the separator for multi-value arguments.
-IFS=,
 
 # The cluster env can be used for common cluster settings, pushed to all VMs in the cluster.
 # This allows separating per-machine settings (the list of inbound ports, local path overrides) from cluster wide
@@ -204,14 +202,14 @@ if [ -z "${PROXY_UID}" ]; then
   fi
   # If ENVOY_UID is not explicitly defined (as it would be in k8s env), we add root to the list,
   # for ca agent.
-  PROXY_UID=${PROXY_UID},0
+  PROXY_UID="${PROXY_UID} 0"
 fi
 # for TPROXY as its uid and gid are same
 if [ -z "${PROXY_GID}" ]; then
 PROXY_GID=${PROXY_UID}
 fi
 
-POD_IP=$(hostname --ip-address)
+POD_IP=$(hostname -i)
 # Check if pod's ip is ipv4 or ipv6, in case of ipv6 set variable
 # to program ip6tables
 if isIPv6 "$POD_IP"; then
@@ -223,32 +221,32 @@ fi
 # need to split them in different arrays one for ipv4 and one for ipv6
 # in order to not to fail
 pl='/*'
-ipv6_ranges_exclude=()
-ipv4_ranges_exclude=()
-for range in "${OUTBOUND_IP_RANGES_EXCLUDE[@]}"; do
+ipv6_ranges_exclude=""
+ipv4_ranges_exclude=""
+for range in ${OUTBOUND_IP_RANGES_EXCLUDE}; do
     r=${range%$pl}
     if isValidIP "$r"; then
         if isIPv4 "$r"; then
-            ipv4_ranges_exclude+=("$range")
+            ipv4_ranges_exclude="$ipv4_ranges_exclude $range"
         elif isIPv6 "$r"; then
-            ipv6_ranges_exclude+=("$range")
+            ipv6_ranges_exclude="$ipv6_ranges_exclude $range"
         fi
     fi
 done
 
-ipv6_ranges_include=()
-ipv4_ranges_include=()
-if [ "${OUTBOUND_IP_RANGES_INCLUDE}" == "*" ]; then
-   ipv6_ranges_include=("*")
-   ipv4_ranges_include=("*")
+ipv6_ranges_include=""
+ipv4_ranges_include=""
+if [ "${OUTBOUND_IP_RANGES_INCLUDE}" = "*" ]; then
+   ipv6_ranges_include="*"
+   ipv4_ranges_include="*"
 else 
-    for range in "${OUTBOUND_IP_RANGES_INCLUDE[@]}"; do
+    for range in ${OUTBOUND_IP_RANGES_INCLUDE}; do
         r=${range%$pl}
         if isValidIP "$r"; then
             if isIPv4 "$r"; then
-                ipv4_ranges_include+=("$range")
+                ipv4_ranges_include="$ipv4_ranges_include $range"
             elif isIPv6 "$r"; then
-                ipv6_ranges_include+=("$range")
+                ipv6_ranges_include="$ipv6_ranges_include $range"
             fi
         fi
     done
@@ -314,7 +312,6 @@ INBOUND_CAPTURE_PORT=${INBOUND_CAPTURE_PORT:-$PROXY_PORT}
 
 set -o errexit
 set -o nounset
-set -o pipefail
 set -x # echo on
 
 # Create a new chain for redirecting outbound traffic to the common Envoy port.
@@ -362,7 +359,7 @@ if [ -n "${INBOUND_PORTS_INCLUDE}" ]; then
   iptables -t ${table} -N ISTIO_INBOUND
   iptables -t ${table} -A PREROUTING -p tcp -j ISTIO_INBOUND
 
-  if [ "${INBOUND_PORTS_INCLUDE}" == "*" ]; then
+  if [ "${INBOUND_PORTS_INCLUDE}" = "*" ]; then
     # Makes sure SSH is not redirected
     iptables -t ${table} -A ISTIO_INBOUND -p tcp --dport 22 -j RETURN
     # Apply any user-specified port exclusions.
@@ -428,8 +425,8 @@ done
 iptables -t nat -A ISTIO_OUTPUT -d 127.0.0.1/32 -j RETURN
 
 # Apply outbound IPv4 exclusions. Must be applied before inclusions.
-if [ ${#ipv4_ranges_exclude[@]} -gt 0 ]; then
-  for cidr in "${ipv4_ranges_exclude[@]}"; do
+if [ -n "${ipv4_ranges_exclude}" ]; then
+  for cidr in ${ipv4_ranges_exclude}; do
     iptables -t nat -A ISTIO_OUTPUT -d "${cidr}" -j RETURN
   done
 fi
@@ -439,8 +436,8 @@ for internalInterface in ${KUBEVIRT_INTERFACES}; do
 done
 
 # Apply outbound IP inclusions.
-if [ ${#ipv4_ranges_include[@]} -gt 0 ]; then
-   if [ "${ipv4_ranges_include[0]}" == "*" ]; then
+if [ -n "${ipv4_ranges_include}" ]; then
+   if [ "${ipv4_ranges_include}" = "*" ]; then
      # Wildcard specified. Redirect all remaining outbound traffic to Envoy.
      iptables -t nat -A ISTIO_OUTPUT -j ISTIO_REDIRECT
      for internalInterface in ${KUBEVIRT_INTERFACES}; do
@@ -448,7 +445,7 @@ if [ ${#ipv4_ranges_include[@]} -gt 0 ]; then
      done
    else 
      # User has specified a non-empty list of cidrs to be redirected to Envoy.
-     for cidr in "${ipv4_ranges_include[@]}"; do
+     for cidr in ${ipv4_ranges_include}; do
         for internalInterface in ${KUBEVIRT_INTERFACES}; do
            iptables -t nat -I PREROUTING 1 -i "${internalInterface}" -d "${cidr}" -j ISTIO_REDIRECT
         done
@@ -503,7 +500,7 @@ if [ -n "${ENABLE_INBOUND_IPV6}" ]; then
     ip6tables -t ${table} -N ISTIO_INBOUND
     ip6tables -t ${table} -A PREROUTING -p tcp -j ISTIO_INBOUND
 
-    if [ "${INBOUND_PORTS_INCLUDE}" == "*" ]; then
+    if [ "${INBOUND_PORTS_INCLUDE}" = "*" ]; then
         # Makes sure SSH is not redirected
         ip6tables -t ${table} -A ISTIO_INBOUND -p tcp --dport 22 -j RETURN
         # Apply any user-specified port exclusions.
@@ -548,14 +545,14 @@ if [ -n "${ENABLE_INBOUND_IPV6}" ]; then
   ip6tables -t nat -A ISTIO_OUTPUT -d ::1/128 -j RETURN
   
   # Apply outbound IPv6 exclusions. Must be applied before inclusions.
-  if [ ${#ipv6_ranges_exclude[@]} -gt 0 ]; then
-    for cidr in "${ipv6_ranges_exclude[@]}"; do
+  if [ -n "${ipv6_ranges_exclude}" ]; then
+    for cidr in ${ipv6_ranges_exclude}; do
       ip6tables -t nat -A ISTIO_OUTPUT -d "${cidr}" -j RETURN
     done
   fi
   # Apply outbound IPv6 inclusions.
-  if [ ${#ipv6_ranges_include[@]} -gt 0 ]; then
-     if [ "${ipv6_ranges_include[0]}" == "*" ]; then
+  if [ -n "${ipv6_ranges_include}"  ]; then
+     if [ "${ipv6_ranges_include}" = "*" ]; then
        # Wildcard specified. Redirect all remaining outbound traffic to Envoy.
        ip6tables -t nat -A ISTIO_OUTPUT -j ISTIO_REDIRECT
        for internalInterface in ${KUBEVIRT_INTERFACES}; do
@@ -563,7 +560,7 @@ if [ -n "${ENABLE_INBOUND_IPV6}" ]; then
        done
      else
        # User has specified a non-empty list of cidrs to be redirected to Envoy.
-       for cidr in "${ipv6_ranges_include[@]}"; do
+       for cidr in ${ipv6_ranges_include}; do
          for internalInterface in ${KUBEVIRT_INTERFACES}; do
            ip6tables -t nat -I PREROUTING 1 -i "${internalInterface}" -d "${cidr}" -j ISTIO_REDIRECT
          done

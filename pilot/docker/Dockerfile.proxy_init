@@ -4,6 +4,7 @@ ARG BASE_DISTRIBUTION=default
 # -----------------------------------------------------------------------------
 FROM ubuntu:xenial as default
 RUN apt-get update && apt-get upgrade -y && apt-get install -y \
+    ash \
     iproute2 \
     iptables \
  && rm -rf /var/lib/apt/lists/*
@@ -24,7 +25,7 @@ COPY --from=default /etc/iproute2 /etc/iproute2
 COPY --from=default /bin/ip /bin/ip
 COPY --from=default /sbin/ip /sbin/ip
 
-COPY  --from=distroless_debug /busybox/sh /bin/bash
+COPY  --from=distroless_debug /busybox/ash /bin/ash
 
 # -----------------------------------------------------------------------------
 FROM ${BASE_DISTRIBUTION}
