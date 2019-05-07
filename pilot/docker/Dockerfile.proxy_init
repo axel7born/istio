@@ -21,6 +21,7 @@ COPY --from=default /sbin/ip6tables* /sbin/
 COPY --from=default /etc/iproute2 /etc/iproute2
 COPY --from=default /bin/ip /bin/ip
 COPY --from=default /sbin/ip /sbin/ip
+RUN [ "/busybox/ln", "-sf", "/busybox/ash", "/bin/ash" ]
 
 # -----------------------------------------------------------------------------
 FROM ${BASE_DISTRIBUTION}
