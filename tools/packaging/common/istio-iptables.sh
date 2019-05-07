@@ -56,6 +56,9 @@ usage() {
   echo 'Using environment variables in $ISTIO_SIDECAR_CONFIG (default: /var/lib/istio/envoy/sidecar.env)'
 }
 
+# Use a comma as the separator for multi-value arguments.
+IFS=,
+
 dump() {
     iptables-save
     ip6tables-save
@@ -86,10 +89,10 @@ isIPv4() {
 #
 isIPv6() {
   local ipv6section="^[0-9a-fA-F]{1,4}$"
-  addr=$(echo "$1" | sed -e 's/:/: /g')
+  addr=$(echo "$1" | sed -e "s/:/:${IFS}/g")
   number_of_parts=0
   number_of_skip=0
-  if [ "$(echo "${addr}" | wc -w)" -eq 0 ]; then
+  if [ "$(echo "${addr}" | awk -F"${IFS}"  '{print NF}')" -eq 0 ]; then
      return 1
   fi
   for part in ${addr}; do
@@ -116,6 +119,7 @@ isIPv6() {
   done
   return 0
 }
+
 
 # The cluster env can be used for common cluster settings, pushed to all VMs in the cluster.
 # This allows separating per-machine settings (the list of inbound ports, local path overrides) from cluster wide
@@ -202,7 +206,7 @@ if [ -z "${PROXY_UID}" ]; then
   fi
   # If ENVOY_UID is not explicitly defined (as it would be in k8s env), we add root to the list,
   # for ca agent.
-  PROXY_UID="${PROXY_UID} 0"
+  PROXY_UID="${PROXY_UID}${IFS}0"
 fi
 # for TPROXY as its uid and gid are same
 if [ -z "${PROXY_GID}" ]; then
@@ -222,20 +226,26 @@ fi
 # in order to not to fail
 pl='/*'
 ipv6_ranges_exclude=""
+ipv6_sep=""
 ipv4_ranges_exclude=""
+ipv4_sep=""
 for range in ${OUTBOUND_IP_RANGES_EXCLUDE}; do
     r=${range%$pl}
     if isValidIP "$r"; then
         if isIPv4 "$r"; then
-            ipv4_ranges_exclude="$ipv4_ranges_exclude $range"
+            ipv4_ranges_exclude="$ipv4_ranges_exclude${ipv4_sep}$range"
+            ipv4_sep="${IFS}"
         elif isIPv6 "$r"; then
-            ipv6_ranges_exclude="$ipv6_ranges_exclude $range"
+            ipv6_ranges_exclude="$ipv6_ranges_exclude${ipv6_sep}$range"
+            ipv6_sep="${IFS}"
         fi
     fi
 done
 
 ipv6_ranges_include=""
+ipv6_sep=""
 ipv4_ranges_include=""
+ipv4_sep=""
 if [ "${OUTBOUND_IP_RANGES_INCLUDE}" = "*" ]; then
    ipv6_ranges_include="*"
    ipv4_ranges_include="*"
@@ -244,9 +254,11 @@ else
         r=${range%$pl}
         if isValidIP "$r"; then
             if isIPv4 "$r"; then
-                ipv4_ranges_include="$ipv4_ranges_include $range"
+                ipv4_ranges_include="$ipv4_ranges_include${ipv4_sep}$range"
+                ipv4_sep="${IFS}"
             elif isIPv6 "$r"; then
-                ipv6_ranges_include="$ipv6_ranges_include $range"
+                ipv6_ranges_include="$ipv6_ranges_include${ipv6_sep}$range"
+                ipv6_sep="${IFS}"
             fi
         fi
     done
