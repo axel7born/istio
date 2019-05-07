@@ -718,6 +718,7 @@ jobs:
         command: |
           echo "export BASE_DISTRIBUTION=default" > build_env
           echo "export TAG=nightly-${CIRCLE_BRANCH}" >> build_env
+          echo "echo 'Using nightly environment'" >> build_env
     - persist_to_workspace:
         root: /go
         paths:
